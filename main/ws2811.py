@@ -27,8 +27,8 @@ class ws2811:
 
     def same(self, r, g, b):
         col = self.pixel(r, g, b)
-
         self.np.fill(col)
+        self.np.write()
 
     def red(self, brightness=55):
         self.same(brightness, 0, 0)
