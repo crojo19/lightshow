@@ -15,17 +15,6 @@ class OTAUpdater:
         self.main_dir = main_dir
         self.module = module.rstrip('/')
 
-    @staticmethod
-    def using_network(ssid, password):
-        import network
-        sta_if = network.WLAN(network.STA_IF)
-        if not sta_if.isconnected():
-            print('connecting to network...')
-            sta_if.active(True)
-            sta_if.connect(ssid, password)
-            while not sta_if.isconnected():
-                pass
-        print('network config:', sta_if.ifconfig())
 
     def get_current_version(self):
         return self.get_version(self.modulepath(self.main_dir))
@@ -46,6 +35,14 @@ class OTAUpdater:
             return True, current_version, latest_version
         return False, current_version, latest_version
 
+    def check_for_update(self):
+        current_version = self.get_version(self.modulepath(self.main_dir))
+        latest_version = self.get_latest_version()
+        if latest_version > current_version:
+            print('New version available')
+            return True, current_version, latest_version
+        return False, current_version, latest_version
+
     def download_and_install_update_if_available(self, ssid, password):
         if 'next' in os.listdir(self.module):
             if '.version_on_reboot' in os.listdir(self.modulepath('next')):
@@ -56,8 +53,6 @@ class OTAUpdater:
             print('No new updates found...')
 
     def _download_and_install_update(self, latest_version, ssid, password):
-        # OTAUpdater.using_network(ssid, password)
-
         self.download_all_files(self.github_repo + '/contents/' + self.main_dir, latest_version)
         self.rmtree(self.modulepath(self.main_dir))
         os.rename(self.modulepath('next/.version_on_reboot'), self.modulepath('next/.version'))

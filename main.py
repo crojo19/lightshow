@@ -2,8 +2,10 @@ from main.ota_updater import OTAUpdater
 
 
 def download_and_install_update_if_available():
-    o = OTAUpdater('https://github.com/crojo19/lightshow')
-    # o.check_for_update_to_install_during_next_reboot()
+    from main import configure
+    o = OTAUpdater(configure.read_config_file("update_repo"))
+    if str(o.get_current_version()) == "0.0":
+        o.download_updates_if_available()
     o.download_and_install_update_if_available('', '')
 
 

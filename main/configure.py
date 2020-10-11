@@ -7,7 +7,7 @@ CONFIG_FILE = "config.json"
 
 
 # Checks if config file exists
-def config_file_exists(self):
+def config_file_exists():
     try:
         if DEBUG: print("Verifying if configuration file exists")
         open(CONFIG_FILE, 'r')
@@ -22,7 +22,7 @@ def config_file_exists(self):
 
 # read config file and return requested item
 # if nothing is passed, return entire config file
-def read_config_file(self, config_item=None):
+def read_config_file(config_item=None):
     try:
         if DEBUG: print("Reading Configuration File")
         config_file = open(CONFIG_FILE, 'r')
@@ -39,7 +39,7 @@ def read_config_file(self, config_item=None):
 
 # validate config file
 # Validation_items list of items to confirm exist []
-def validate_config_file(self, validation_items):
+def validate_config_file(validation_items):
     try:
         if DEBUG: print("Reading Configuration File")
         config_file = open(CONFIG_FILE, 'r')
@@ -56,9 +56,9 @@ def validate_config_file(self, validation_items):
 
 
 # write data to config file dict[tag]
-def put_config_items(self, config_dict):
+def put_config_items(config_dict):
     config = {}
-    if self.config_file_exists():
+    if config_file_exists():
         if DEBUG: print("Read Data from config file")
         config_file = open(CONFIG_FILE, 'r')
         config = json.loads(config_file.read())
@@ -69,7 +69,7 @@ def put_config_items(self, config_dict):
     f = open(CONFIG_FILE, 'w')
     f.write(json.dumps(config))
     f.close()
-    return json.dump(config)
+    return json.dumps(config)
 
 
 # config_items = [tag, tag, tag]
@@ -77,4 +77,4 @@ def get_config_items(self, config_items):
     config_dict = None
     for item in config_items:
         config_dict[item] = self.read_config_file(config_item=item)
-    return json.dump(config_dict)
+    return json.dumps(config_dict)
