@@ -100,14 +100,16 @@ def config_update(req, resp):
     d = qs_parse(req.qs)
     new = {d['key']: d['value']}
     yield from resp.awrite(configure.put_config_items(new))
+    machine.reset()
 
 
 
 @app.route("/status/updateserver")
 def status_updateserver(req, resp):
     yield from picoweb.start_response(resp)
-    yield from resp.awrite("<p>configuration: </p>")
-    yield from resp.awrite("<p>" + str(configure.read_config_file()) + "</p>")
+    update_server()
+
+def update_server():
     # perform post to server IP @ port in config with configuration data
     url = "http://" + str(configure.read_config_file('server_ip')) + "/device/check_in/" +\
           str(configure.read_config_file('name'))
@@ -117,8 +119,6 @@ def status_updateserver(req, resp):
     }
     data = config()
     response = urequests.post(url, headers=pb_headers, json=data)
-    print(str(data))
-    return response
 
 
 @app.route("/status")

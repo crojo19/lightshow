@@ -6,6 +6,8 @@ site = picoweb.WebApp(__name__)
 # always load admin module
 site.mount("/admin", admin.app)
 
+admin.update_server()
+
 # if module in config load module
 from . import ws2811
 site.mount("/led", ws2811.app)
