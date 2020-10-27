@@ -1,6 +1,6 @@
 from . import picoweb
 from . import admin
-from .ota_updater import OTAUpdater
+import ujson
 
 site = picoweb.WebApp(__name__)
 # always load admin module
@@ -26,20 +26,31 @@ def index(req, resp):
                 yield from resp.awrite(str(mount.url) + str(item[0]))
                 yield from resp.awrite("</p>")
 
+
 @site.route("/config")
 def config(req, resp):
-    # Create based on config file
+    yield from picoweb.start_response(resp, content_type="application/json")
+    data = {}
+    data.update({'status': 200})
+    yield from resp.awrite(ujson.dumps(data))
+
+
+@site.route("/config")
+def config(req, resp):
+    yield from picoweb.start_response(resp, content_type="application/json")
+    from . import configure
     data = configure.read_config_file()
-    # add Mac address
+    import ubinascii
+    import network
     data.update({'mac_address': ubinascii.hexlify(network.WLAN().config('mac'), ':').decode()})
-    # add ip address
     (ip, other, other1, other2) = network.WLAN().ifconfig()
     data.update({'ip_address': ip})
-    # get current installed app version
+
+    from .ota_updater import OTAUpdater
     o = OTAUpdater(configure.read_config_file("update_repo"))
     current_version = o.get_current_version()
     data.update({'installed_version': current_version})
-
+    from . import wifimgr
     wifi = wifimgr.read_profiles()
     data.update({'wifi': wifi})
 
@@ -55,6 +66,6 @@ def config(req, resp):
                 items.update({i: str(item[0])})
                 i = i + 1
     data.update({'admin_routes': items})
-    return data
+    yield from resp.awrite(ujson.dumps(data))
 
 site.run(host='0.0.0.0',debug=True, port=80)
