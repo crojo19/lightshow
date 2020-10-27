@@ -28,7 +28,10 @@ class OTAUpdater:
         print('\tLatest version: ', latest_version)
         if latest_version > current_version:
             print('New version available, will download and install on next reboot')
-            os.mkdir(self.modulepath('next'))
+            try:
+                os.mkdir(self.modulepath('next'))
+            except:
+                pass
             with open(self.modulepath('next/.version_on_reboot'), 'w') as versionfile:
                 versionfile.write(latest_version)
                 versionfile.close()
@@ -125,13 +128,20 @@ class OTAUpdater:
                 self.download_file(download_url.replace('refs/tags/', ''), download_path)
             elif file['type'] == 'dir':
                 path = self.modulepath('next/' + file['path'].replace(self.main_dir + '/', ''))
-                os.mkdir(path)
+                try:
+                    os.mkdir(path)
+                except:
+                    pass
                 self.download_all_files(root_url + '/' + file['name'], version)
 
         file_list.close()
 
     def download_file(self, url, path):
         print('\tDownloading: ', path)
+        try:
+            os.remove(path)
+        except:
+            pass
         with open(path, 'w') as outfile:
             try:
                 response = self.http_client.get(url)
