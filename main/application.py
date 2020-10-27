@@ -1,6 +1,6 @@
 from . import picoweb
 from . import admin
-from ota_updater import OTAUpdater
+from .ota_updater import OTAUpdater
 
 site = picoweb.WebApp(__name__)
 # always load admin module
