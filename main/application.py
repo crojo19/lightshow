@@ -27,8 +27,8 @@ def index(req, resp):
                 yield from resp.awrite("</p>")
 
 
-@site.route("/config")
-def config(req, resp):
+@site.route("/status")
+def status(req, resp):
     yield from picoweb.start_response(resp, content_type="application/json")
     data = {}
     data.update({'status': 200})
