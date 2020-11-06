@@ -1,15 +1,27 @@
 from . import picoweb
 from . import admin
 import ujson
+import time
+import ucollections
+import urequests
+from .timing import ntptime
 
 site = picoweb.WebApp(__name__)
 # always load admin module
 site.mount("/admin", admin.app)
 
-admin.update_server()
+try:
+    admin.update_server()
+except:
+    print("unable to contact server")
+    pass
+
+# create schedule
+schedule = {}
 
 # if module in config load module
 from . import ws2811
+from .ws2811 import lights
 site.mount("/led", ws2811.app)
 
 @site.route("/")
@@ -50,6 +62,10 @@ def config(req, resp):
     o = OTAUpdater(configure.read_config_file("update_repo"))
     current_version = o.get_current_version()
     data.update({'installed_version': current_version})
+
+    import os
+    data.update({'os_info': os.uname()})
+
     from . import wifimgr
     wifi = wifimgr.read_profiles()
     data.update({'wifi': wifi})
@@ -68,4 +84,97 @@ def config(req, resp):
     data.update({'admin_routes': items})
     yield from resp.awrite(ujson.dumps(data))
 
-site.run(host='0.0.0.0',debug=True, port=80)
+
+@site.route("/run_lightshow")
+def status(req, resp):
+    routine_complete = False
+    routine = {}
+
+    # sync time with server
+    ntptime.host = "192.168.152.3"
+    ntptime.settime()
+
+    # TODO parse start_time from request
+    start_time = time.time_ns() + 10000000000
+
+    # get first X commands
+    routine, end_of_show = get_next_instructions("192.168.152.3","/lighshow/nextcommand", 5)
+    # print(routine)
+    if len(routine) > 0:
+        print("local_time: " + str(time.time_ns()))
+        print("start_time: " + str(start_time))
+        print("################")
+        preshow()
+        # check start time
+        while time.time_ns() < start_time:
+            True
+        print("####### START #########")
+        print("local_time: " + str(time.time_ns()))
+        print("start_time: " + str(start_time))
+        while True:
+            for item in routine:
+                str_key = str(item)
+                int_key = int(item)
+                while time.time_ns() < int_key:
+                    True
+                print("Delta ms: " + str((time.time_ns() - int_key)/1000000) + " : time:" + str(time.time_ns()) + " : expectedTime:" + str_key + " : Command: " + str(routine[str_key]))
+                run_command(routine[str_key])
+            # get next commands
+            routine, end_of_show = get_next_instructions("192.168.152.3", "/lighshow/nextcommand", 5)
+            if end_of_show:
+                end_show()
+                break
+
+    yield from picoweb.start_response(resp, content_type="application/json")
+    data = {}
+    data.update({'status': 200})
+    yield from resp.awrite(ujson.dumps(data))
+
+
+def preshow():
+    lights.rgb(55, 0, 0)
+    time.sleep_ms(50)
+    lights.rgb(0, 55, 0)
+    time.sleep_ms(50)
+    lights.rgb(0, 0, 55)
+    time.sleep_ms(50)
+    lights.rgb(0, 0, 0)
+
+def end_show():
+    lights.rgb(0, 0, 0)
+
+def run_command(command):
+    try:
+        if command['command_type'] == "lights":
+            getattr(lights, command['function'])(**command['parameters'])
+    except Exception as e:
+        print(str(e))
+        print("ERROR - Command Failed to run: " + str(command))
+        pass
+
+
+def get_next_instructions(server_ip, path, number_of_commands):
+    routine = {}
+    end_of_show = False
+    url = "http://" + server_ip + path
+    print(url)
+    pb_headers = {
+        'Content-Type': 'application/json'
+    }
+    data = ujson.dumps({'limit': number_of_commands})
+    try:
+        response = urequests.post(url, headers=pb_headers, json=data)
+        routine = response.json()
+        routine = ucollections.OrderedDict(sorted(routine.items()))
+    except:
+        print("unable to get next set of commands")
+        end_of_show = True
+        pass
+    if len(routine) == 0:
+        end_of_show = True
+    if end_of_show:
+        print("end of show reached")
+    return routine, end_of_show
+
+
+site.run(host='0.0.0.0', debug=True, port=80)

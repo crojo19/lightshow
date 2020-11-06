@@ -6,6 +6,7 @@ import machine
 from .ota_updater import OTAUpdater
 from . import configure
 from . import wifimgr
+import time
 
 app = picoweb.WebApp(__name__)
 
@@ -98,8 +99,8 @@ def qs_parse(qs):
 def config_update(req, resp):
     yield from picoweb.start_response(resp)
     d = qs_parse(req.qs)
-    new = {d['key']: d['value']}
-    yield from resp.awrite(configure.put_config_items(new))
+    yield from resp.awrite(configure.put_config_items(d))
+    time.sleep(2)
     machine.reset()
 
 
@@ -139,10 +140,11 @@ def config():
     o = OTAUpdater(configure.read_config_file("update_repo"))
     current_version = o.get_current_version()
     data.update({'installed_version': current_version})
-
+    import os
+    data.update({'os_info': os.uname()})
+    
     wifi = wifimgr.read_profiles()
     data.update({'wifi': wifi})
-
     items = {}
     i = 0
     for item in app.get_url_map():

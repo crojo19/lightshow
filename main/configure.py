@@ -2,7 +2,7 @@ import os
 import json
 
 # Global
-DEBUG = True
+DEBUG = False
 CONFIG_FILE = "config.json"
 
 
@@ -47,7 +47,6 @@ def validate_config_file(validation_items):
         config_file.close()
         for item in validation_items:
             if config[item] is None: return False
-
         if DEBUG: print("config file valid")
         return True
     except:
@@ -73,8 +72,13 @@ def put_config_items(config_dict):
 
 
 # config_items = [tag, tag, tag]
-def get_config_items(self, config_items):
-    config_dict = None
-    for item in config_items:
-        config_dict[item] = self.read_config_file(config_item=item)
+def get_config_items(self, config_items=None):
+    config_dict = {}
+    if config_items is None:
+        config_dict = self.read_config_file()
+    elif isinstance(config_items, list):
+        for item in config_items:
+            config_dict[item] = self.read_config_file(config_item=item)
+    elif isinstance(config_items, str):
+        config_dict[item] = self.read_config_file(config_item=config_items)
     return json.dumps(config_dict)

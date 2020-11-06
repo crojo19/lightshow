@@ -12,16 +12,14 @@ def download_and_install_update_if_available():
 def start():
     import gc
     gc.collect()
-
     try:
         from main import application
-
         application()
     except Exception as e:
         print(str(e))
         import machine
-
         machine.reset()
+
 
 def boot():
     from main import wifimgr
@@ -37,19 +35,5 @@ def boot():
 
 
 boot()
-
-
-
-# Connect to Wifi
-
-
-# import upip
-# upip.install('picoweb')
-# upip.install('pycopy-ulogging')
-# Memory Cleanup
-
-
-# Main Code
-
 
 
