@@ -40,7 +40,6 @@ def get_connection(ssid, password):
 
         # Search WiFis in range
         wlan_sta.active(True)
-        sta.config(dhcp_hostname='tinypico')
         networks = wlan_sta.scan()
 
         AUTHMODE = {0: "open", 1: "WEP", 2: "WPA-PSK", 3: "WPA2-PSK", 4: "WPA/WPA2-PSK"}
