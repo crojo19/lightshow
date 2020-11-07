@@ -64,7 +64,11 @@ def config(req, resp):
     data.update({'installed_version': current_version})
 
     import os
-    data.update({'os_info': os.uname()})
+    uname = os.uname()
+    data.update({'sysname': uname.sysname})
+    data.update({'release': uname.release})
+    data.update({'version': uname.version})
+    data.update({'machine': uname.machine})
 
     from . import wifimgr
     wifi = wifimgr.read_profiles()
@@ -86,7 +90,7 @@ def config(req, resp):
 
 
 @site.route("/run_lightshow")
-def status(req, resp):
+def run_lightshow(req, resp):
     routine_complete = False
     routine = {}
 

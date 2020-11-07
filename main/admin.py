@@ -7,6 +7,7 @@ from .ota_updater import OTAUpdater
 from . import configure
 from . import wifimgr
 import time
+import ujson
 
 app = picoweb.WebApp(__name__)
 
@@ -119,6 +120,7 @@ def update_server():
         'Content-Type': 'application/json'
     }
     data = config()
+    # data = ujson.dumps(config())
     response = urequests.post(url, headers=pb_headers, json=data)
 
 
@@ -141,7 +143,11 @@ def config():
     current_version = o.get_current_version()
     data.update({'installed_version': current_version})
     import os
-    data.update({'os_info': os.uname()})
+    uname = os.uname()
+    data.update({'sysname': uname.sysname})
+    data.update({'release': uname.release})
+    data.update({'version': uname.version})
+    data.update({'machine': uname.machine})
     
     wifi = wifimgr.read_profiles()
     data.update({'wifi': wifi})
