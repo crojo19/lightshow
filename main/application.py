@@ -94,15 +94,16 @@ def run_lightshow(req, resp):
     routine_complete = False
     routine = {}
 
+    d = qs_parse(req.qs)
+    start_time = d['starttime']
+    server_ip = d['server']
+
     # sync time with server
-    ntptime.host = "192.168.152.3"
+    ntptime.host = server_ip
     ntptime.settime()
 
-    # TODO parse start_time from request
-    start_time = time.time_ns() + 10000000000
-
     # get first X commands
-    routine, end_of_show = get_next_instructions("192.168.152.3","/lighshow/nextcommand", 5)
+    routine, end_of_show = get_next_instructions(server_ip,"/lighshow/nextcommand", 5)
     # print(routine)
     if len(routine) > 0:
         print("local_time: " + str(time.time_ns()))
@@ -124,7 +125,7 @@ def run_lightshow(req, resp):
                 print("Delta ms: " + str((time.time_ns() - int_key)/1000000) + " : time:" + str(time.time_ns()) + " : expectedTime:" + str_key + " : Command: " + str(routine[str_key]))
                 run_command(routine[str_key])
             # get next commands
-            routine, end_of_show = get_next_instructions("192.168.152.3", "/lighshow/nextcommand", 5)
+            routine, end_of_show = get_next_instructions(server_ip, "/lighshow/nextcommand", 5)
             if end_of_show:
                 end_show()
                 break
@@ -133,6 +134,21 @@ def run_lightshow(req, resp):
     data = {}
     data.update({'status': 200})
     yield from resp.awrite(ujson.dumps(data))
+
+
+def try_int(val):
+    try:
+        return int(val)
+    except ValueError:
+        return val
+
+
+def qs_parse(qs):
+    res = {}
+    for el in qs.split('&'):
+        key, val = el.split('=')
+        res[key] = try_int(val)
+    return res
 
 
 def preshow():
