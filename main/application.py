@@ -1,5 +1,6 @@
 from . import picoweb
 from . import admin
+from . import configure
 import ujson
 import time
 import ucollections
@@ -11,9 +12,17 @@ site = picoweb.WebApp(__name__)
 site.mount("/admin", admin.app)
 
 try:
+    print("Checking in with server")
     admin.update_server()
 except:
     print("unable to contact server")
+    pass
+try:
+    # sync time with server
+    print("Syncing with time server")
+    ntptime.host = str(configure.read_config_file('server_ip'))
+    ntptime.settime()
+except:
     pass
 
 # create schedule
@@ -50,7 +59,7 @@ def status(req, resp):
 @site.route("/config")
 def config(req, resp):
     yield from picoweb.start_response(resp, content_type="application/json")
-    from . import configure
+
     data = configure.read_config_file()
     import ubinascii
     import network
@@ -98,9 +107,6 @@ def run_lightshow(req, resp):
     start_time = d['starttime']
     server_ip = d['server']
 
-    # sync time with server
-    ntptime.host = server_ip
-    ntptime.settime()
 
     # get first X commands
     routine, end_of_show = get_next_instructions(server_ip,"/lighshow/nextcommand", 5)

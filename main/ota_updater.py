@@ -20,23 +20,26 @@ class OTAUpdater:
         return self.get_version(self.modulepath(self.main_dir))
 
     def check_for_update_to_install_during_next_reboot(self):
-        current_version = self.get_version(self.modulepath(self.main_dir))
-        latest_version = self.get_latest_version()
+        try:
+            current_version = self.get_version(self.modulepath(self.main_dir))
+            latest_version = self.get_latest_version()
 
-        print('Checking version... ')
-        print('\tCurrent version: ', current_version)
-        print('\tLatest version: ', latest_version)
-        if latest_version > current_version:
-            print('New version available, will download and install on next reboot')
-            try:
-                os.mkdir(self.modulepath('next'))
-            except:
-                pass
-            with open(self.modulepath('next/.version_on_reboot'), 'w') as versionfile:
-                versionfile.write(latest_version)
-                versionfile.close()
-            return True, current_version, latest_version
-        return False, current_version, latest_version
+            print('Checking version... ')
+            print('\tCurrent version: ', current_version)
+            print('\tLatest version: ', latest_version)
+            if latest_version > current_version:
+                print('New version available, will download and install on next reboot')
+                try:
+                    os.mkdir(self.modulepath('next'))
+                except:
+                    pass
+                with open(self.modulepath('next/.version_on_reboot'), 'w') as versionfile:
+                    versionfile.write(latest_version)
+                    versionfile.close()
+                return True, current_version, latest_version
+            return False, current_version, latest_version
+        except:
+            return False, 0.0, 0.0
 
     def check_for_update(self):
         current_version = self.get_version(self.modulepath(self.main_dir))
@@ -47,13 +50,16 @@ class OTAUpdater:
         return False, current_version, latest_version
 
     def download_and_install_update_if_available(self, ssid, password):
-        if 'next' in os.listdir(self.module):
-            if '.version_on_reboot' in os.listdir(self.modulepath('next')):
-                latest_version = self.get_version(self.modulepath('next'), '.version_on_reboot')
-                print('New update found: ', latest_version)
-                self._download_and_install_update(latest_version, ssid, password)
-        else:
-            print('No new updates found...')
+        try:
+            if 'next' in os.listdir(self.module):
+                if '.version_on_reboot' in os.listdir(self.modulepath('next')):
+                    latest_version = self.get_version(self.modulepath('next'), '.version_on_reboot')
+                    print('New update found: ', latest_version)
+                    self._download_and_install_update(latest_version, ssid, password)
+            else:
+                print('No new updates found...')
+        except:
+            machine.reset()
 
     def _download_and_install_update(self, latest_version, ssid, password):
         self.download_all_files(self.github_repo + '/contents/' + self.main_dir, latest_version)
