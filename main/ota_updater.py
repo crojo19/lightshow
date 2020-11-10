@@ -5,6 +5,7 @@ import usocket
 import os
 import gc
 import machine
+from . import configure
 
 
 class OTAUpdater:
@@ -38,7 +39,8 @@ class OTAUpdater:
                     versionfile.close()
                 return True, current_version, latest_version
             return False, current_version, latest_version
-        except:
+        except Exception as e:
+            print(e)
             return False, 0.0, 0.0
 
     def check_for_update(self):
@@ -273,19 +275,25 @@ class HttpClient:
         return resp
 
     def head(self, url, **kw):
-        return self.request('HEAD', url, **kw)
+        token = "token " + configure.read_config_file('update_repo_token')
+        return self.request('HEAD', url, headers={'Authorization': token}, **kw)
 
     def get(self, url, **kw):
-        return self.request('GET', url, **kw)
+        token = "token " + configure.read_config_file('update_repo_token')
+        return self.request('GET', url, headers={'Authorization': token}, **kw)
 
     def post(self, url, **kw):
-        return self.request('POST', url, **kw)
+        token = "token " + configure.read_config_file('update_repo_token')
+        return self.request('POST', url, headers={'Authorization': token}, **kw)
 
     def put(self, url, **kw):
-        return self.request('PUT', url, **kw)
+        token = "token " + configure.read_config_file('update_repo_token')
+        return self.request('PUT', url, headers={'Authorization': token}, **kw)
 
     def patch(self, url, **kw):
-        return self.request('PATCH', url, **kw)
+        token = "token " + configure.read_config_file('update_repo_token')
+        return self.request('PATCH', url, headers={'Authorization': token}, **kw)
 
     def delete(self, url, **kw):
-        return self.request('DELETE', url, **kw)
+        token = "token " + configure.read_config_file('update_repo_token')
+        return self.request('DELETE', url, headers={'Authorization': token}, **kw)
