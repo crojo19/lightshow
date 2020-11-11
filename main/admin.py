@@ -8,6 +8,8 @@ from . import configure
 from . import wifimgr
 import time
 import ujson
+from .timing import ntptime
+
 
 app = picoweb.WebApp(__name__)
 
@@ -72,6 +74,18 @@ def updatesoftware(req, resp):
         yield from resp.awrite("<p>no update available</p>")
         yield from resp.awrite("<p>Current Version: " + str(current_version) + "</p>")
         yield from resp.awrite("<p>Latest Version: " + str(latest_version) + "</p>")
+
+
+@app.route("/time/set")
+def config_get(req, resp):
+    yield from picoweb.start_response(resp)
+    try:
+        # sync time with server
+        print("Syncing with time server")
+        ntptime.host = str(configure.read_config_file('server_ip'))
+        ntptime.settime()
+    except:
+        pass
 
 
 @app.route("/config/get")
