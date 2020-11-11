@@ -13,7 +13,6 @@ NTP_DELTA = 3155673600
 # The NTP host can be configured at runtime by doing: ntptime.host = 'myhost.org'
 host = "pool.ntp.org"
 
-
 def time():
     NTP_QUERY = bytearray(48)
     NTP_QUERY[0] = 0x1B
@@ -25,15 +24,16 @@ def time():
         msg = s.recv(48)
     finally:
         s.close()
+
     val = struct.unpack("!I", msg[40:44])[0]
-    return val - NTP_DELTA
+    return val - NTP_DELTA, int((struct.unpack("!I", msg[44:48])[0] / 4294967295) * 1000000)
 
 
 # There's currently no timezone support in MicroPython, and the RTC is set in UTC time.
 def settime():
-    t = time()
+    t, micro_sec = time()
     import machine
     import utime
-
+    print(t)
     tm = utime.gmtime(t)
-    machine.RTC().datetime((tm[0], tm[1], tm[2], tm[6] + 1, tm[3], tm[4], tm[5], 0))
+    machine.RTC().datetime((tm[0], tm[1], tm[2], tm[6] + 1, tm[3], tm[4], tm[5], micro_sec))

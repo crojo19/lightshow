@@ -79,13 +79,19 @@ def updatesoftware(req, resp):
 @app.route("/time/set")
 def config_get(req, resp):
     yield from picoweb.start_response(resp)
-    try:
+    # try:
         # sync time with server
-        print("Syncing with time server")
+    print("Syncing with time server")
+    if str(req.qs) == "":
         ntptime.host = str(configure.read_config_file('server_ip'))
-        ntptime.settime()
-    except:
-        pass
+    else:
+        d = qs_parse(req.qs)
+        ntptime.host = str(d['ntp'])
+    ntptime.settime()
+    timess = str(time.time_ns())
+    print(timess)
+    yield from resp.awrite(timess)
+
 
 
 @app.route("/config/get")
@@ -103,6 +109,8 @@ def try_int(val):
 
 
 def qs_parse(qs):
+    if qs is None:
+        return {}
     res = {}
     for el in qs.split('&'):
         key, val = el.split('=')
