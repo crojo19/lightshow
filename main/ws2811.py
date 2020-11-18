@@ -66,6 +66,21 @@ class ws2811:
             self.np.write()
             time.sleep_ms(timems)
 
+    def color_wipe_2(self, red=0, green=0, blue=0, timems=200, direction=0):
+        """Wipe color across display a pixel at a time."""
+        time_per_pixel = int(timems/self.PIXEL_COUNT)
+        pixel_count = self.PIXEL_COUNT
+        if direction == 0:
+            for i in range(self.PIXEL_COUNT):
+                self.np[i] = self.pixel(red, green, blue)
+                self.np.write()
+                time.sleep_ms(time_per_pixel)
+        elif direction == 1:
+            for i in range(self.PIXEL_COUNT):
+                self.np[pixel_count - i] = self.pixel(red, green, blue)
+                self.np.write()
+                time.sleep_ms(time_per_pixel)
+
     # used for rainbow cycle
     def wheel(self, pos):
         # Input a value 0 to 255 to get a color value.
@@ -176,6 +191,13 @@ def routine_flash2(req, resp):
 def routine_colorwipe(req, resp):
     yield from picoweb.start_response(resp)
     lights.colorWipe(**qs_parse(req.qs))
+
+
+@app.route("/routine/color_wipe")
+def routine_color_wipe(req, resp):
+    yield from picoweb.start_response(resp)
+    lights.color_wipe_2(**qs_parse(req.qs))
+
 
 @app.route("/routine/rainbow")
 def routine_rainbow(req, resp):
