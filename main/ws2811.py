@@ -77,7 +77,7 @@ class ws2811:
                 time.sleep_ms(time_per_pixel)
         elif direction == 1:
             for i in range(self.PIXEL_COUNT):
-                self.np[pixel_count - i] = self.pixel(red, green, blue)
+                self.np[pixel_count - i - 1] = self.pixel(red, green, blue)
                 self.np.write()
                 time.sleep_ms(time_per_pixel)
 
