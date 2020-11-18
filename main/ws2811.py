@@ -208,7 +208,7 @@ def routine_rainbow(req, resp):
 @app.route("/routine/alternate")
 def routine_alternate(req, resp):
     yield from picoweb.start_response(resp)
-    lights.rainbow_cycle(**qs_parse(req.qs))
+    lights.alternate(**qs_parse(req.qs))
 
 
 
