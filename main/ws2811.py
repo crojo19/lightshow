@@ -1,7 +1,7 @@
-
 import time
 import machine, neopixel
 from . import configure
+
 
 class ws2811:
     def __init__(self, light_count, rgb=False, gbr=False, rbg=False, grb=False, brg=False):
@@ -56,6 +56,14 @@ class ws2811:
             self.np.write()
             time.sleep_ms(timems)
 
+    def flash_2(self, red1=0, green1=0, blue1=0, red2=0, green2=0, blue2=0, totaltimems=1000, timewaitms=100):
+        count = int((totaltimems / timewaitms)/2)
+        for y in range(count):
+            self.same(red1, green1, blue1)
+            time.sleep_ms(timewaitms)
+            self.same(red2, green2, blue2)
+            time.sleep_ms(timewaitms)
+
     def rgb(self, red, green, blue):
         self.same(red, green, blue)
 
@@ -67,8 +75,8 @@ class ws2811:
             time.sleep_ms(timems)
 
     def color_wipe_2(self, red=0, green=0, blue=0, timems=200, direction=0):
-        """Wipe color across display a pixel at a time."""
-        time_per_pixel = int(timems/self.PIXEL_COUNT)
+        """Wipe color across display a pixel at a time over the total time alocated"""
+        time_per_pixel = int(timems / self.PIXEL_COUNT)
         pixel_count = self.PIXEL_COUNT
         if direction == 0:
             for i in range(self.PIXEL_COUNT):
@@ -80,6 +88,40 @@ class ws2811:
                 self.np[pixel_count - i - 1] = self.pixel(red, green, blue)
                 self.np.write()
                 time.sleep_ms(time_per_pixel)
+
+    # needs work
+    def fade(self, red=0, green=0, blue=0, timems=200, direction=0):
+        """fade up or down to r,g,b over set time"""
+        """Direction 0 - fade out."""
+        change = 5
+        time_per_change = int(timems / 50)
+        pixel_count = self.PIXEL_COUNT
+        if direction == 0:
+            for i in range(self.PIXEL_COUNT):
+                c_red, c_green, c_blue = self.np[i]
+                if c_red < red:
+                    c_red += change
+                if c_green < green:
+                    c_green += change
+                if c_blue < blue:
+                    c_blue += change
+
+                self.np[i] = self.pixel(c_red, c_green, blue)
+                self.np.write()
+                time.sleep_ms(time_per_change)
+        elif direction == 1:
+            for i in range(self.PIXEL_COUNT):
+                c_red, c_green, c_blue = self.np[i]
+                if c_red > red:
+                    c_red -= change
+                if c_green > green:
+                    c_green -= change
+                if c_blue > blue:
+                    c_blue -= change
+
+                self.np[i] = self.pixel(c_red, c_green, blue)
+                self.np.write()
+                time.sleep_ms(time_per_change)
 
     # used for rainbow cycle
     def wheel(self, pos):
@@ -103,7 +145,6 @@ class ws2811:
             self.np.write()
             time.sleep_ms(timems)
 
-
     # alternate color every other light
     def alternate(self, red1=0, green1=0, blue1=0, red2=0, green2=0, blue2=0):
         for i in range(self.PIXEL_COUNT):
@@ -115,6 +156,7 @@ class ws2811:
 
 
 from . import picoweb
+
 app = picoweb.WebApp(__name__)
 
 lights = ws2811(int(configure.read_config_file("count")), grb=True)
@@ -128,6 +170,8 @@ def try_int(val):
 
 
 def qs_parse(qs):
+    if len(qs) < 3:
+        return {}
     res = {}
     for el in qs.split('&'):
         key, val = el.split('=')
@@ -186,6 +230,11 @@ def routine_flash2(req, resp):
     yield from picoweb.start_response(resp)
     lights.flash(**qs_parse(req.qs))
 
+@app.route("/routine/flash_2")
+def routine_flash2(req, resp):
+    yield from picoweb.start_response(resp)
+    lights.flash_2(**qs_parse(req.qs))
+
 
 @app.route("/routine/colorwipe")
 def routine_colorwipe(req, resp):
@@ -211,7 +260,5 @@ def routine_alternate(req, resp):
     lights.alternate(**qs_parse(req.qs))
 
 
-
 if __name__ == "__main__":
     app.run(debug=True)
-
