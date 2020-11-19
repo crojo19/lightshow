@@ -89,39 +89,19 @@ class ws2811:
                 self.np.write()
                 time.sleep_ms(time_per_pixel)
 
-    # needs work
-    def fade(self, red=0, green=0, blue=0, timems=200, direction=0):
-        """fade up or down to r,g,b over set time"""
-        """Direction 0 - fade out."""
-        change = 5
-        time_per_change = int(timems / 50)
-        pixel_count = self.PIXEL_COUNT
-        if direction == 0:
-            for i in range(self.PIXEL_COUNT):
-                c_red, c_green, c_blue = self.np[i]
-                if c_red < red:
-                    c_red += change
-                if c_green < green:
-                    c_green += change
-                if c_blue < blue:
-                    c_blue += change
 
-                self.np[i] = self.pixel(c_red, c_green, blue)
-                self.np.write()
-                time.sleep_ms(time_per_change)
-        elif direction == 1:
-            for i in range(self.PIXEL_COUNT):
-                c_red, c_green, c_blue = self.np[i]
-                if c_red > red:
-                    c_red -= change
-                if c_green > green:
-                    c_green -= change
-                if c_blue > blue:
-                    c_blue -= change
+    def fade(self, red1=0, green1=0, blue1=0,  red2=0, green2=0, blue2=0,  steps=10, timems=1000):
+        time_per_change = int(timems/steps)
 
-                self.np[i] = self.pixel(c_red, c_green, blue)
-                self.np.write()
-                time.sleep_ms(time_per_change)
+        for i in range(1, steps + 1):
+            r = ((red1 * (steps - i)) + (red2 * i)) / steps
+            g = ((green1 * (steps - i)) + (green2 * i)) / steps
+            b = ((blue1 * (steps - i)) + (blue2 * i)) / steps
+
+            for j in range(self.PIXEL_COUNT):
+                self.np[j] = self.pixel(int(r), int(g), int(b))
+            self.np.write()
+            time.sleep_ms(time_per_change)
 
     # used for rainbow cycle
     def wheel(self, pos):
@@ -258,6 +238,11 @@ def routine_rainbow(req, resp):
 def routine_alternate(req, resp):
     yield from picoweb.start_response(resp)
     lights.alternate(**qs_parse(req.qs))
+
+@app.route("/routine/fade")
+def routine_alternate(req, resp):
+    yield from picoweb.start_response(resp)
+    lights.fade(**qs_parse(req.qs))
 
 
 if __name__ == "__main__":
