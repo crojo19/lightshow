@@ -127,15 +127,10 @@ class ws2811:
 
     # alternate color every other light
     def alternate(self, red1=0, green1=0, blue1=0, red2=0, green2=0, blue2=0):
-        to_return = []
-        to_return.append("pixel count :" + str(self.PIXEL_COUNT))
-
         for i in range(self.PIXEL_COUNT):
             if i % 2 == 0:
-                to_return.append("remainder 0 :" + str(i))
                 self.np[i] = self.pixel(red1, green1, blue1)
             else:
-                to_return.append("remainder 1 :" + str(i))
                 self.np[i] = self.pixel(red2, green2, blue2)
             self.np.write()
         return to_return
@@ -243,8 +238,7 @@ def routine_rainbow(req, resp):
 @app.route("/routine/alternate")
 def routine_alternate(req, resp):
     yield from picoweb.start_response(resp)
-    # lights.alternate(**qs_parse(req.qs))
-    yield from resp.awrite(str(lights.alternate(**qs_parse(req.qs))))
+    lights.alternate(**qs_parse(req.qs))
 
 @app.route("/routine/fade")
 def routine_alternate(req, resp):
