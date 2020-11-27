@@ -136,6 +136,15 @@ def config_add_ssid(req, resp):
     machine.reset()
 
 
+@app.route("/config/remove_ssid")
+def config_add_ssid(req, resp):
+    yield from picoweb.start_response(resp)
+    d = qs_parse(req.qs)
+    wlan = wifimgr.delete_profile_item(d['ssid'])
+    time.sleep(2)
+    machine.reset()
+
+
 @app.route("/status/updateserver")
 def status_updateserver(req, resp):
     yield from picoweb.start_response(resp)
