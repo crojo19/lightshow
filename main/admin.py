@@ -127,6 +127,14 @@ def config_update(req, resp):
     machine.reset()
 
 
+@app.route("/config/add_ssid")
+def config_add_ssid(req, resp):
+    yield from picoweb.start_response(resp)
+    d = qs_parse(req.qs)
+    wlan = wifimgr.add_profile_item(d['ssid'], d['password'])
+    time.sleep(2)
+    machine.reset()
+
 
 @app.route("/status/updateserver")
 def status_updateserver(req, resp):

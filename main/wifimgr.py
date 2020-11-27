@@ -87,6 +87,15 @@ def write_profiles(profiles):
         f.write(''.join(lines))
 
 
+def add_profile_item(ssid, password):
+    try:
+        profiles = read_profiles()
+    except OSError:
+        profiles = {}
+    profiles[ssid] = password
+    write_profiles(profiles)
+
+
 def do_connect(ssid, password):
     wlan_sta.active(True)
     if wlan_sta.isconnected():
