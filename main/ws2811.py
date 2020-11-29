@@ -76,22 +76,39 @@ class ws2811:
 
     def color_wipe_2(self, red=0, green=0, blue=0, timems=200, direction=0):
         """Wipe color across display a pixel at a time over the total time alocated"""
-        time_per_pixel = int(timems / self.PIXEL_COUNT)
         pixel_count = self.PIXEL_COUNT
-        if direction == 0:
-            for i in range(self.PIXEL_COUNT):
-                self.np[i] = self.pixel(red, green, blue)
-                self.np.write()
-                time.sleep_ms(time_per_pixel)
-        elif direction == 1:
-            for i in range(self.PIXEL_COUNT):
-                self.np[pixel_count - i - 1] = self.pixel(red, green, blue)
-                self.np.write()
-                time.sleep_ms(time_per_pixel)
+        ms = 1000000
+        start_time = time.time_ns()
+        time_per_change = int(timems / pixel_count)
+        end_time = start_time + (timems * ms)
+        last_update = start_time - time_per_change
 
+
+        if direction == 0:
+            for i in range(pixel_count):
+                self.np[i] = self.pixel(red, green, blue)
+                while time.time_ns() < last_update + time_per_change:
+                    pass
+                self.np.write()
+                last_update = last_update + time_per_change
+                if time.time_ns() > end_time:
+                    return
+        elif direction == 1:
+            for i in range(pixel_count):
+                self.np[pixel_count - i - 1] = self.pixel(red, green, blue)
+                while time.time_ns() < last_update + time_per_change:
+                    pass
+                self.np.write()
+                last_update = last_update + time_per_change
+                if time.time_ns() > end_time:
+                    return
 
     def fade(self, red1=0, green1=0, blue1=0,  red2=0, green2=0, blue2=0,  steps=10, timems=1000):
-        time_per_change = int(timems/steps)
+        ms = 1000000
+        start_time = time.time_ns()
+        time_per_change = int(timems*ms/steps)
+        end_time = start_time + (timems * ms)
+        last_update = start_time - time_per_change
 
         for i in range(1, steps + 1):
             r = ((red1 * (steps - i)) + (red2 * i)) / steps
@@ -100,8 +117,14 @@ class ws2811:
 
             for j in range(self.PIXEL_COUNT):
                 self.np[j] = self.pixel(int(r), int(g), int(b))
+
+            while time.time_ns() < last_update + time_per_change:
+                pass
             self.np.write()
-            time.sleep_ms(time_per_change)
+            last_update = last_update + time_per_change
+
+            if time.time_ns() > end_time:
+                return
 
     # used for rainbow cycle
     def wheel(self, pos):
@@ -132,8 +155,7 @@ class ws2811:
                 self.np[i] = self.pixel(red1, green1, blue1)
             else:
                 self.np[i] = self.pixel(red2, green2, blue2)
-            self.np.write()
-        return to_return
+        self.np.write()
 
 
 from . import picoweb
