@@ -100,6 +100,11 @@ def config(req, resp):
 
 @site.route("/run_lightshow")
 def run_lightshow(req, resp):
+    yield from picoweb.start_response(resp, content_type="application/json")
+    data = {}
+    data.update({'received': 200})
+    yield from resp.awrite(ujson.dumps(data))
+
     routine_complete = False
     routine = {}
 
@@ -135,8 +140,6 @@ def run_lightshow(req, resp):
             if end_of_show:
                 end_show()
                 break
-
-    yield from picoweb.start_response(resp, content_type="application/json")
     data = {}
     data.update({'status': 200})
     yield from resp.awrite(ujson.dumps(data))
@@ -193,8 +196,15 @@ def get_next_instructions(server_ip, path, number_of_commands):
         routine = response.json()
         routine = ucollections.OrderedDict(sorted(routine.items()))
     except:
-        print("unable to get next set of commands")
-        end_of_show = True
+        print("unable to get next set of commands trying once more")
+        try:
+            response = urequests.post(url, headers=pb_headers, json=data)
+            routine = response.json()
+            routine = ucollections.OrderedDict(sorted(routine.items()))
+        except:
+            print("unable to get next set of commands...assume no more commands")
+            end_of_show = True
+            pass
         pass
     if len(routine) == 0:
         end_of_show = True
