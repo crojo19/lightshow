@@ -104,14 +104,11 @@ def run_lightshow(req, resp):
     data = {}
     data.update({'received': 200})
     yield from resp.awrite(ujson.dumps(data))
-
     routine_complete = False
     routine = {}
-
     d = qs_parse(req.qs)
     start_time = d['starttime']
     server_ip = d['server']
-
 
     # get first X commands
     routine, end_of_show = get_next_instructions(server_ip,"/lighshow/nextcommand", 5)
@@ -128,15 +125,20 @@ def run_lightshow(req, resp):
         print("local_time: " + str(time.time_ns()))
         print("start_time: " + str(start_time))
         while True:
+            str_key = ""
             for item in routine:
                 str_key = str(item)
                 int_key = int(item)
                 while time.time_ns() < int_key:
                     True
                 print("Delta ms: " + str((time.time_ns() - int_key)/1000000) + " : time:" + str(time.time_ns()) + " : expectedTime:" + str_key + " : Command: " + str(routine[str_key]))
-                run_command(routine[str_key])
+                # if delta is less than 75 ms run command
+                if (time.time_ns() - int_key)/1000000 < 75:
+                    run_command(routine[str_key])
+                else:
+                    print("Delta too large not played")
             # get next commands
-            routine, end_of_show = get_next_instructions(server_ip, "/lighshow/nextcommand", 5)
+            routine, end_of_show = get_next_instructions(server_ip, "/lighshow/nextcommand", 5, str(item))
             if end_of_show:
                 end_show()
                 break
@@ -170,7 +172,7 @@ def preshow():
     lights.rgb(0, 0, 0)
 
 def end_show():
-    lights.rgb(0, 0, 0)
+    lights.rgb(25, 25, 25)
 
 def run_command(command):
     try:
@@ -182,7 +184,7 @@ def run_command(command):
         pass
 
 
-def get_next_instructions(server_ip, path, number_of_commands):
+def get_next_instructions(server_ip, path, number_of_commands, last_command="0"):
     routine = {}
     end_of_show = False
     url = "http://" + server_ip + path
@@ -190,7 +192,7 @@ def get_next_instructions(server_ip, path, number_of_commands):
     pb_headers = {
         'Content-Type': 'application/json'
     }
-    data = ujson.dumps({'limit': number_of_commands})
+    data = ujson.dumps({'limit': number_of_commands, 'last_command': last_command})
     try:
         response = urequests.post(url, headers=pb_headers, json=data)
         routine = response.json()
