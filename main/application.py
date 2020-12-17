@@ -207,6 +207,7 @@ def get_next_instructions(server_ip, path, number_of_commands, last_command="0")
             print("Max Retry's reached")
             end_of_show = True
         i = i + 1
+        
     if 'end' in routine:
         end_of_show = True
     if len(routine) == 0:
