@@ -194,19 +194,20 @@ def get_next_instructions(server_ip, path, number_of_commands, last_command="0")
     }
     data = ujson.dumps({'limit': number_of_commands, 'last_command': last_command})
     retry_max = 5
-    i = 0
+    i = 1
     while len(routine) == 0:
         try:
             response = urequests.post(url, headers=pb_headers, json=data)
-            time.sleep_ms(100)
+            time.sleep_ms(i * 100)
             routine_json = response.json()
             routine = ucollections.OrderedDict(sorted(routine_json.items()))
         except:
             print("unable to get next set of commands trying once more")
             pass
-        if i >= retry_max:
+        if i >= retry_max + 1:
             print("Max Retry's reached")
             end_of_show = True
+            break
         i = i + 1
         
     if 'end' in routine:
