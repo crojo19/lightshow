@@ -198,6 +198,7 @@ def get_next_instructions(server_ip, path, number_of_commands, last_command="0")
     while len(routine) == 0:
         try:
             response = urequests.post(url, headers=pb_headers, json=data)
+            time.sleep_ms(100)
             routine_json = response.json()
             routine = ucollections.OrderedDict(sorted(routine_json.items()))
         except:
