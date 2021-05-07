@@ -4,9 +4,9 @@ from main.ota_updater import OTAUpdater
 def download_and_install_update_if_available():
     from main import configure
     o = OTAUpdater(configure.read_config_file("update_repo"))
-    if str(o.get_current_version()) == "0.0":
-        o.check_for_update_to_install_during_next_reboot()
-    o.download_and_install_update_if_available('', '')
+    if str(o.get_current_version()) == "0.0.0":
+        o.set_version_on_reboot(o.get_latest_version())
+    o.update_software()
 
 
 def start():
