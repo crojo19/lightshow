@@ -95,6 +95,7 @@ class WebApp:
             self.url_map.append((re.compile("^/(static/.+)"), self.handle_static))
         self.mounts = []
         self.inited = False
+        self.urls = []
         # Instantiated lazily
         self.template_loader = None
         self.headers_mode = "parse"
@@ -250,9 +251,11 @@ class WebApp:
         # in _handle() above.
         self.mounts.sort(key=lambda app: len(app.url), reverse=True)
 
-    def route(self, url, **kwargs):
+    def route(self, url, parameters=None, description=None, **kwargs):
         def _route(f):
             self.url_map.append((url, f, kwargs))
+            print(url + "-" + str(parameters) + "-" + str(description))
+
             return f
         return _route
 

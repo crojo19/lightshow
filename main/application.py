@@ -1,12 +1,14 @@
 from . import picoweb
 from . import admin
 from . import configure
+from .timing import ntptime
 import ujson
 import time
 import ucollections
 import urequests
-from .timing import ntptime
+import gc
 
+DEBUG = True
 site = picoweb.WebApp(__name__)
 # always load admin module
 site.mount("/admin", admin.app)
@@ -33,7 +35,7 @@ from . import ws2811
 from .ws2811 import lights
 site.mount("/led", ws2811.app)
 
-@site.route("/")
+@site.route("/", parameters="None")
 def index(req, resp):
     yield from picoweb.start_response(resp)
     for item in site.get_url_map():
@@ -48,15 +50,13 @@ def index(req, resp):
                 yield from resp.awrite("</p>")
 
 
-@site.route("/status")
+@site.route("/status", parameters="", description="Return 200 if available")
 def status(req, resp):
     yield from picoweb.start_response(resp, content_type="application/json")
-    data = {}
-    data.update({'status': 200})
-    yield from resp.awrite(ujson.dumps(data))
+    yield from resp.awrite(ujson.dumps({'status': 200}))
 
 
-@site.route("/config")
+@site.route("/config", parameters="None")
 def config(req, resp):
     yield from picoweb.start_response(resp, content_type="application/json")
 
@@ -68,7 +68,7 @@ def config(req, resp):
     data.update({'ip_address': ip})
 
     from .ota_updater import OTAUpdater
-    o = OTAUpdater(configure.read_config_file("update_repo"))
+    o = OTAUpdater(configure.read_config_file("update_repo"), github_auth_token=configure.read_config_file('update_repo_token'))
     current_version = o.get_current_version()
     data.update({'installed_version': current_version})
 
@@ -98,7 +98,7 @@ def config(req, resp):
     yield from resp.awrite(ujson.dumps(data))
 
 
-@site.route("/run_lightshow")
+@site.route("/run_lightshow", parameters="Not Sure")
 def run_lightshow(req, resp):
     yield from picoweb.start_response(resp, content_type="application/json")
     data = {}
@@ -114,9 +114,10 @@ def run_lightshow(req, resp):
     routine, end_of_show = get_next_instructions(server_ip,"/lighshow/nextcommand", 5)
     # print(routine)
     if len(routine) > 0:
+        print("################")
         print("local_time: " + str(time.time_ns()))
         print("start_time: " + str(start_time))
-        print("################")
+
         preshow()
         # check start time
         while time.time_ns() < start_time:
@@ -129,11 +130,13 @@ def run_lightshow(req, resp):
             for item in routine:
                 str_key = str(item)
                 int_key = int(item)
-                while time.time_ns() < int_key:
+                while time.time_ns() < int_key - 9000:
+                    # Add logic to get more items if time allows
                     True
-                print("Delta ms: " + str((time.time_ns() - int_key)/1000000) + " : time:" + str(time.time_ns()) + " : expectedTime:" + str_key + " : Command: " + str(routine[str_key]))
+                ms_delta = (time.time_ns() - int_key)/1000000
+                if DEBUG: print("Delta ms: " + str(ms_delta) + " : time:" + str(time.time_ns()) + " : expectedTime:" + str_key + " : Command: " + str(routine[str_key]))
                 # if delta is less than 75 ms run command
-                if (time.time_ns() - int_key)/1000000 < 75:
+                if ms_delta < 75:
                     run_command(routine[str_key])
                 else:
                     print("Delta too large not played")
@@ -194,15 +197,17 @@ def get_next_instructions(server_ip, path, number_of_commands, last_command="0")
     }
     data = ujson.dumps({'limit': number_of_commands, 'last_command': last_command})
     retry_max = 5
-    i = 1
+    i = 0
+    gc.collect()
     while len(routine) == 0:
         try:
             response = urequests.post(url, headers=pb_headers, json=data)
             time.sleep_ms(i * 100)
             routine_json = response.json()
+            response.close()
             routine = ucollections.OrderedDict(sorted(routine_json.items()))
-        except:
-            print("unable to get next set of commands trying once more")
+        except Exception as e:
+            print("unable to get next set of commands trying once more {}".format(e))
             pass
         if i >= retry_max + 1:
             print("Max Retry's reached")
@@ -219,4 +224,4 @@ def get_next_instructions(server_ip, path, number_of_commands, last_command="0")
     return routine, end_of_show
 
 
-site.run(host='0.0.0.0', debug=True, port=80)
+site.run(host='0.0.0.0', debug=False, port=80)

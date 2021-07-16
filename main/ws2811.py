@@ -110,21 +110,21 @@ class ws2811:
         end_time = start_time + (timems * ms)
         last_update = start_time - time_per_change
 
+
         for i in range(1, steps + 1):
+            if time.time_ns() > end_time - time_per_change:
+                print("ended fade early")
+                return
             r = ((red1 * (steps - i)) + (red2 * i)) / steps
             g = ((green1 * (steps - i)) + (green2 * i)) / steps
             b = ((blue1 * (steps - i)) + (blue2 * i)) / steps
 
-            for j in range(self.PIXEL_COUNT):
-                self.np[j] = self.pixel(int(r), int(g), int(b))
-
             while time.time_ns() < last_update + time_per_change:
                 pass
-            self.np.write()
+            self.same(int(r), int(g), int(b))
             last_update = last_update + time_per_change
 
-            if time.time_ns() > end_time:
-                return
+
 
     # used for rainbow cycle
     def wheel(self, pos):

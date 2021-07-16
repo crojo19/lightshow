@@ -25,20 +25,21 @@ def index(req, resp):
 def reboot(req, resp):
     yield from picoweb.start_response(resp)
     yield from resp.awrite("rebooting")
+    time.sleep(2)
     machine.reset()
 
-@app.route("/getcurrentversion")
+@app.route("/currentversion")
 def getcurrentversion(req, resp):
     yield from picoweb.start_response(resp)
-    o = OTAUpdater(configure.read_config_file("update_repo"))
+    o = OTAUpdater(configure.read_config_file("update_repo"), github_auth_token=configure.read_config_file('update_repo_token'))
     current_version = o.get_current_version()
     yield from resp.awrite(current_version)
 
 
-@app.route("/getlatestversion")
+@app.route("/latestversion")
 def getlatestversion(req, resp):
     yield from picoweb.start_response(resp)
-    o = OTAUpdater(configure.read_config_file("update_repo"))
+    o = OTAUpdater(configure.read_config_file("update_repo"), github_auth_token=configure.read_config_file('update_repo_token'))
     latest_version = o.get_latest_version()
     yield from resp.awrite(latest_version)
 
@@ -46,12 +47,12 @@ def getlatestversion(req, resp):
 @app.route("/checkforupdate")
 def checkforupdate(req, resp):
     yield from picoweb.start_response(resp)
-    o = OTAUpdater(configure.read_config_file("update_repo"))
+    o = OTAUpdater(configure.read_config_file("update_repo"), github_auth_token=configure.read_config_file('update_repo_token'))
     update_available, current_version, latest_version = o.check_for_update()
     if update_available:
         yield from resp.awrite("update available...")
-        yield from resp.awrite("Current Version: " + str(current_version))
-        yield from resp.awrite("Latest Version: " + str(latest_version))
+        yield from resp.awrite("<p>Current Version: " + str(current_version) + "</>")
+        yield from resp.awrite("Latest Version: " + str(latest_version) + "</p>")
         yield from resp.awrite("Reboot to update")
     else:
         yield from resp.awrite("no update available")
@@ -61,13 +62,14 @@ def checkforupdate(req, resp):
 @app.route("/updatesoftware")
 def updatesoftware(req, resp):
     yield from picoweb.start_response(resp)
-    o = OTAUpdater(configure.read_config_file("update_repo"))
-    update_available, current_version, latest_version = o.check_for_update_to_install_during_next_reboot()
+    o = OTAUpdater(configure.read_config_file("update_repo"), github_auth_token=configure.read_config_file('update_repo_token'))
+    update_available, current_version, latest_version = o.check_for_update()
     if update_available:
         yield from resp.awrite("<p>update available</p>")
         yield from resp.awrite("<p>Current Version: " + str(current_version) + "</p>")
         yield from resp.awrite("<p>Latest Version: " + str(latest_version) + "</p>")
         yield from resp.awrite("rebooting")
+        o.set_version_on_reboot(latest_version)
         machine.reset()
 
     else:
@@ -93,14 +95,6 @@ def config_get(req, resp):
     yield from resp.awrite(timess)
 
 
-
-@app.route("/config/get")
-def config_get(req, resp):
-    yield from picoweb.start_response(resp)
-    yield from resp.awrite("<p>configuration: </p>")
-    yield from resp.awrite("<p>" + str(configure.read_config_file()) + "</p>")
-
-
 def try_int(val):
     try:
         return int(val)
@@ -117,7 +111,14 @@ def qs_parse(qs):
         res[key] = try_int(val)
     return res
 
-# TODO
+
+@app.route("/config/get")
+def config_get(req, resp):
+    yield from picoweb.start_response(resp)
+    yield from resp.awrite("<p>configuration: </p>")
+    yield from resp.awrite("<p>" + str(configure.read_config_file()) + "</p>")
+
+
 @app.route("/config/update")
 def config_update(req, resp):
     yield from picoweb.start_response(resp)
@@ -131,7 +132,7 @@ def config_update(req, resp):
 def config_add_ssid(req, resp):
     yield from picoweb.start_response(resp)
     d = qs_parse(req.qs)
-    wlan = wifimgr.add_profile_item(d['ssid'], d['password'])
+    wifimgr.add_profile_item(d['ssid'], d['password'])
     time.sleep(2)
     machine.reset()
 
@@ -140,7 +141,7 @@ def config_add_ssid(req, resp):
 def config_add_ssid(req, resp):
     yield from picoweb.start_response(resp)
     d = qs_parse(req.qs)
-    wlan = wifimgr.delete_profile_item(d['ssid'])
+    wifimgr.delete_profile_item(d['ssid'])
     time.sleep(2)
     machine.reset()
 
@@ -148,19 +149,25 @@ def config_add_ssid(req, resp):
 @app.route("/status/updateserver")
 def status_updateserver(req, resp):
     yield from picoweb.start_response(resp)
-    update_server()
+    config = configure.read_config_file()
+    try:
+        update_server(port=config["check_in_port"], check_in_url=config["check_in_url"])
+    except:
+        print("check_in_port or check_in_url not in config file using defaults")
+        update_server()
 
-def update_server():
+
+def update_server(port=80, check_in_url="/device/check_in/"):
     # perform post to server IP @ port in config with configuration data
-    url = "http://" + str(configure.read_config_file('server_ip')) + "/device/check_in/" +\
+    url = "http://" + str(configure.read_config_file('server_ip')) + ":" + str(port) + check_in_url +\
           str(configure.read_config_file('name'))
     print(url)
     pb_headers = {
         'Content-Type': 'application/json'
     }
     data = config()
-    # data = ujson.dumps(config())
     response = urequests.post(url, headers=pb_headers, json=data)
+    response.close()
 
 
 @app.route("/status")
@@ -178,7 +185,7 @@ def config():
     (ip, other, other1, other2) = network.WLAN().ifconfig()
     data.update({'ip_address': ip})
     # get current installed app version
-    o = OTAUpdater(configure.read_config_file("update_repo"))
+    o = OTAUpdater(configure.read_config_file("update_repo"), github_auth_token=configure.read_config_file('update_repo_token'))
     current_version = o.get_current_version()
     data.update({'installed_version': current_version})
     import os
@@ -187,7 +194,7 @@ def config():
     data.update({'release': uname.release})
     data.update({'version': uname.version})
     data.update({'machine': uname.machine})
-    
+
     wifi = wifimgr.read_profiles()
     data.update({'wifi': wifi})
     items = {}

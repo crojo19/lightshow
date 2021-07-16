@@ -1,22 +1,21 @@
-# 1000 x dank aan Evelien die mijn in deze tijden gesteund heeft
-# ohja, en er is ook nog tante suker (Jana Dej.) die graag kinderen wilt maar het zelf nog niet beseft
-
 import os
 import gc
 import machine
-from . import configure
 import urequests
 
 class OTAUpdater:
 
-    def __init__(self, github_repo, module='', main_dir='main'):
+    def __init__(self, github_repo, module='', main_dir='main', github_auth_token=None):
         self.github_repo = github_repo.rstrip('/').replace('https://github.com', 'https://api.github.com/repos')
         self.main_dir = main_dir
         self.module = module.rstrip('/')
         self.current_version = self._get_version(self.modulepath(self.main_dir))
-
-        token = "token " + configure.read_config_file('update_repo_token')
-        self.headers = {'User-Agent': 'Micropython 1.15', 'Authorization': token}
+        self.headers = None
+        if github_auth_token is None:
+            self.headers = {'User-Agent': 'Micropython'}
+        else:
+            token = "token " + github_auth_token
+            self.headers = {'User-Agent': 'Micropython', 'Authorization': token}
 
     def get_current_version(self):
         return self.current_version
@@ -43,18 +42,6 @@ class OTAUpdater:
         with open(self.modulepath('next/.version_on_reboot'), 'w') as versionfile:
             versionfile.write(version)
             versionfile.close()
-
-    def check_for_update_to_install_during_next_reboot(self):
-        try:
-            update_available, current_version, latest_version = self.check_for_update()
-            if update_available:
-                print('New version available: Flagging for download and install on next reboot')
-                self.set_version_on_reboot(latest_version)
-                return True, self.current_version, latest_version
-            return False, self.current_version, latest_version
-        except Exception as e:
-            print(e)
-            return False, '0.0.0', '0.0.0'
 
     def check_for_update(self):
         current_version = self.current_version
@@ -89,9 +76,8 @@ class OTAUpdater:
         self.rmtree(self.modulepath(self.main_dir))
         os.rename(self.modulepath('next/.version_on_reboot'), self.modulepath('next/.version'))
         os.rename(self.modulepath('next'), self.modulepath(self.main_dir))
-        os.rename("main.py", "main2.py")
+        os.remove("main.py")
         os.rename("main/main.py", "main.py")
-        os.remove("main2.py")
         print('Update installed (', version, '), will reboot now')
         machine.reset()
 
@@ -117,17 +103,18 @@ class OTAUpdater:
                     os.mkdir(path)
                 except:
                     pass
-                self.download_all_files(root_url + '/' + file['name'], version)
+                self.download_all_files(root_url + '/' + file['name'], version, None)
         file_list.close()
         gc.collect()
-        file_list = urequests.get(other_url + '?ref=refs/tags/' + version, headers=self.headers)
-        for file in file_list.json():
-            if file['name'] == 'main.py':
-                download_url = file['download_url']
-                download_path = self.modulepath('next/' + file['path'].replace(self.main_dir + '/', ''))
-                self.download_file(download_url.replace('refs/tags/', ''), download_path)
-        file_list.close()
-        gc.collect()
+        if other_url is not None:
+            file_list = urequests.get(other_url + '?ref=refs/tags/' + version, headers=self.headers)
+            for file in file_list.json():
+                if file['name'] == 'main.py':
+                    download_url = file['download_url']
+                    download_path = self.modulepath('next/' + file['path'].replace(self.main_dir + '/', ''))
+                    self.download_file(download_url.replace('refs/tags/', ''), download_path)
+            file_list.close()
+            gc.collect()
 
     def download_file(self, url, path):
         print('\tDownloading: ', path)

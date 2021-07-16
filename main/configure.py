@@ -80,5 +80,5 @@ def get_config_items(self, config_items=None):
         for item in config_items:
             config_dict[item] = self.read_config_file(config_item=item)
     elif isinstance(config_items, str):
-        config_dict[item] = self.read_config_file(config_item=config_items)
+        config_dict[config_items] = self.read_config_file(config_item=config_items)
     return json.dumps(config_dict)
