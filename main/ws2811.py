@@ -46,6 +46,7 @@ class ws2811:
         self.same(brightness, brightness, brightness)
 
     def flash(self, red=0, green=0, blue=0, timems=60, count=10):
+        # to be deprecated
         for y in range(count):
             for x in range(self.PIXEL_COUNT):
                 self.np[x] = self.pixel(red, green, blue)
@@ -68,22 +69,18 @@ class ws2811:
         self.same(red, green, blue)
 
     def colorWipe(self, red=0, green=0, blue=0, timems=50):
-        """Wipe color across display a pixel at a time."""
-        for i in range(self.PIXEL_COUNT):
-            self.np[i] = self.pixel(red, green, blue)
-            self.np.write()
-            time.sleep_ms(timems)
+        # to be depricated
+        timems = timems*self.PIXEL_COUNT
+        self.color_wipe_2(red,green,blue,timems)
 
     def color_wipe_2(self, red=0, green=0, blue=0, timems=200, direction=0):
         """Wipe color across display a pixel at a time over the total time alocated"""
         pixel_count = self.PIXEL_COUNT
         ms = 1000000
         start_time = time.time_ns()
-        time_per_change = int(timems / pixel_count)
+        time_per_change = int(timems / pixel_count)*ms
         end_time = start_time + (timems * ms)
         last_update = start_time - time_per_change
-
-
         if direction == 0:
             for i in range(pixel_count):
                 self.np[i] = self.pixel(red, green, blue)

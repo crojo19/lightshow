@@ -1,3 +1,5 @@
+import json
+
 from . import picoweb
 from . import admin
 from . import configure
@@ -105,7 +107,7 @@ def run_lightshow(req, resp):
     data.update({'received': 200})
     yield from resp.awrite(ujson.dumps(data))
     routine_complete = False
-    routine = {}
+    routine = []
     d = qs_parse(req.qs)
     start_time = d['starttime']
     server_ip = d['server']
@@ -120,31 +122,42 @@ def run_lightshow(req, resp):
 
         preshow()
         # check start time
-        while time.time_ns() < start_time:
-            True
+        # while time.time_ns() < start_time:
+        #     True
         print("####### START #########")
         print("local_time: " + str(time.time_ns()))
         print("start_time: " + str(start_time))
         while True:
             str_key = ""
-            for item in routine:
-                str_key = str(item)
-                int_key = int(item)
+
+            while len(routine) > 0:
+                item = routine.pop(0)
+                str_key = item[1]
+                int_key = int(item[0])
+                # 9ms before command expected
                 while time.time_ns() < int_key - 9000:
-                    # Add logic to get more items if time allows
+                    # is more than 500 ms available before next command
+                    if time.time_ns() - (int_key - 9000) > 500000000:
+                        print("more than 500 ms")
+                        routine_new, end_of_show = get_next_instructions(server_ip, "/lighshow/nextcommand", 5,
+                                                                     str(int_key))
+                        if not end_of_show:
+                            routine.extend(routine_new)
                     True
                 ms_delta = (time.time_ns() - int_key)/1000000
-                if DEBUG: print("Delta ms: " + str(ms_delta) + " : time:" + str(time.time_ns()) + " : expectedTime:" + str_key + " : Command: " + str(routine[str_key]))
+                if DEBUG: print("Delta ms: " + str(ms_delta) + " : time:" + str(time.time_ns()) + " : expectedTime:" + str(int_key) + " : Command: " + str(str_key))
                 # if delta is less than 75 ms run command
                 if ms_delta < 75:
-                    run_command(routine[str_key])
+                    run_command(str_key)
                 else:
                     print("Delta too large not played")
             # get next commands
-            routine, end_of_show = get_next_instructions(server_ip, "/lighshow/nextcommand", 5, str(item))
             if end_of_show:
-                end_show()
                 break
+            routine, end_of_show = get_next_instructions(server_ip, "/lighshow/nextcommand", 5, str(int_key))
+            if end_of_show:
+                break
+    end_show()
     data = {}
     data.update({'status': 200})
     yield from resp.awrite(ujson.dumps(data))
@@ -204,8 +217,11 @@ def get_next_instructions(server_ip, path, number_of_commands, last_command="0")
             response = urequests.post(url, headers=pb_headers, json=data)
             time.sleep_ms(i * 100)
             routine_json = response.json()
+            print(routine_json)
             response.close()
-            routine = ucollections.OrderedDict(sorted(routine_json.items()))
+            routine = list(sorted(routine_json.items()))
+            # routine = ucollections.OrderedDict(sorted(routine_json.items()))
+            # print(routine)
         except Exception as e:
             print("unable to get next set of commands trying once more {}".format(e))
             pass
@@ -214,10 +230,12 @@ def get_next_instructions(server_ip, path, number_of_commands, last_command="0")
             end_of_show = True
             break
         i = i + 1
-        
+    print(routine)
     if 'end' in routine:
         end_of_show = True
     if len(routine) == 0:
+        end_of_show = True
+    if len(routine) == 1:
         end_of_show = True
     if end_of_show:
         print("end of show reached")
