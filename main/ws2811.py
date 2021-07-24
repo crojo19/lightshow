@@ -100,6 +100,43 @@ class ws2811:
                 if time.time_ns() > end_time:
                     return
 
+    def runner(self, red=0, green=0, blue=0, count=1, timems=200, direction=0):
+        """Wipe color across display a pixel at a time over the total time alocated"""
+        pixel_count = self.PIXEL_COUNT
+        ms = 1000000
+        start_time = time.time_ns()
+        time_per_change = int(timems / pixel_count)*ms
+        end_time = start_time + (timems * ms)
+        last_update = start_time - time_per_change
+        if direction == 0:
+            for i in range(count):
+                self.np[i] = self.pixel(red, green, blue)
+            self.np.write()
+            last_update = last_update + time_per_change
+            for i in range(pixel_count-count):
+                self.np[i] = self.np[i+count]
+                self.np[i + count] = self.pixel(red, green, blue)
+                while time.time_ns() < last_update + time_per_change:
+                    pass
+                self.np.write()
+                last_update = last_update + time_per_change
+                if time.time_ns() > end_time:
+                    return
+        elif direction == 1:
+            for i in range(count):
+                self.np[pixel_count-1-i] = self.pixel(red, green, blue)
+            self.np.write()
+            last_update = last_update + time_per_change
+            for i in range(pixel_count-count):
+                self.np[pixel_count-1-i] = self.np[pixel_count-1-count-i]
+                self.np[pixel_count-1-count-i] = self.pixel(red, green, blue)
+                while time.time_ns() < last_update + time_per_change:
+                    pass
+                self.np.write()
+                last_update = last_update + time_per_change
+                if time.time_ns() > end_time:
+                    return
+
     def fade(self, red1=0, green1=0, blue1=0,  red2=0, green2=0, blue2=0,  steps=10, timems=1000):
         ms = 1000000
         start_time = time.time_ns()
@@ -273,6 +310,11 @@ def routine_alternate(req, resp):
 def routine_alternate(req, resp):
     yield from picoweb.start_response(resp)
     lights.fade(**qs_parse(req.qs))
+
+@app.route("/routine/runner")
+def routine_runner(req, resp):
+    yield from picoweb.start_response(resp)
+    lights.runner(**qs_parse(req.qs))
 
 
 if __name__ == "__main__":
