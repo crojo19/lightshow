@@ -121,6 +121,7 @@ class ws2811:
                 self.np.write()
                 last_update = last_update + time_per_change
                 if time.time_ns() > end_time:
+                    self.off()
                     return
         elif direction == 1:
             for i in range(count):
@@ -135,7 +136,9 @@ class ws2811:
                 self.np.write()
                 last_update = last_update + time_per_change
                 if time.time_ns() > end_time:
+                    self.off()
                     return
+        self.off()
 
     def fade(self, red1=0, green1=0, blue1=0,  red2=0, green2=0, blue2=0,  steps=10, timems=1000):
         ms = 1000000
