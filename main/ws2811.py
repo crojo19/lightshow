@@ -137,13 +137,23 @@ class ws2811:
         pos -= 170
         return (pos * 3, 0, 255 - pos * 3)
 
-    def rainbow_cycle(self, timems=50):
-        for j in range(255):
+    def rainbow_cycle(self, timems=500):
+        ms = 1000000
+        start_time = time.time_ns()
+        time_per_change = int(timems*ms/self.PIXEL_COUNT)
+        end_time = start_time + (timems * ms)
+        last_update = start_time - time_per_change
+        for j in range(self.PIXEL_COUNT):
+            if time.time_ns() > end_time - time_per_change:
+                print("ended fade early")
+                return
             for i in range(self.PIXEL_COUNT):
                 rc_index = (i * 256 // self.PIXEL_COUNT) + j
                 self.np[i] = self.wheel(rc_index & 255)
+            while time.time_ns() < last_update + time_per_change:
+                pass
             self.np.write()
-            time.sleep_ms(timems)
+            last_update = last_update + time_per_change
 
     # alternate color every other light
     def alternate(self, red1=0, green1=0, blue1=0, red2=0, green2=0, blue2=0):
