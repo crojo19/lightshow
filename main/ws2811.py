@@ -101,13 +101,15 @@ class ws2811:
                     return
 
     def runner(self, red=0, green=0, blue=0, count=1, timems=200, direction=0):
-        """Wipe color across display a pixel at a time over the total time alocated"""
+        """Wipe small number of pixels across over the total time alocated"""
         pixel_count = self.PIXEL_COUNT
         ms = 1000000
         start_time = time.time_ns()
         time_per_change = int(timems / pixel_count)*ms
         end_time = start_time + (timems * ms)
         last_update = start_time - time_per_change
+        if count > pixel_count:
+            count = pixel_count
         if direction == 0:
             for i in range(count):
                 self.np[i] = self.pixel(red, green, blue)
@@ -138,6 +140,8 @@ class ws2811:
                 if time.time_ns() > end_time:
                     self.off()
                     return
+        while time.time_ns() < end_time:
+            True
         self.off()
 
     def fade(self, red1=0, green1=0, blue1=0,  red2=0, green2=0, blue2=0,  steps=10, timems=1000):
