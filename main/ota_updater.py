@@ -46,6 +46,8 @@ class OTAUpdater:
     def check_for_update(self):
         current_version = self.current_version
         latest_version = self.get_latest_version()
+        if latest_version == self.current_version:
+            return False, current_version, latest_version
         if latest_version == self.get_largest_version_number([current_version, latest_version]):
             print('New version available')
             return True, current_version, latest_version
