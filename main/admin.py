@@ -9,6 +9,7 @@ from . import wifimgr
 import time
 import ujson
 from .timing import ntptime
+import uasyncio as asyncio
 
 
 app = picoweb.WebApp(__name__)
@@ -25,7 +26,11 @@ def index(req, resp):
 def reboot(req, resp):
     yield from picoweb.start_response(resp)
     yield from resp.awrite("rebooting")
-    time.sleep(2)
+    loop = asyncio.get_event_loop()
+    loop.create_task(reboot_ms(1000))
+
+async def reboot_ms(time_ms):
+    await asyncio.sleep_ms(time_ms)
     machine.reset()
 
 @app.route("/currentversion")
