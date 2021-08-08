@@ -34,7 +34,7 @@ def read_config_file(config_item=None):
         else:
             return config[config_item]
     except:
-        return print("404 Not Found")
+        return None
 
 
 # validate config file
