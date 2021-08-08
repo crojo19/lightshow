@@ -1,16 +1,20 @@
-import json
-
 from . import picoweb
 from . import admin
 from . import configure
 from .timing import ntptime
 import ujson
 import time
-import ucollections
 import urequests
 import gc
+import uasyncio as asyncio
 
-DEBUG = True
+ROUTINE = []
+ROUTINE_COMPLETE = False
+ROUTINE_LENGTH = 0
+DEBUG = False
+LAST_COMMAND = 0
+MAX_QUEUE = 50 if configure.read_config_file('max_routine_queue') is None else int(configure.read_config_file('max_routine_queue'))
+
 site = picoweb.WebApp(__name__)
 # always load admin module
 site.mount("/admin", admin.app)
@@ -30,7 +34,7 @@ except:
     pass
 
 # create schedule
-schedule = {}
+# schedule = {}
 
 # if module in config load module
 from . import ws2811
@@ -100,67 +104,64 @@ def config(req, resp):
     yield from resp.awrite(ujson.dumps(data))
 
 
+async def lightshow(start_time):
+    global ROUTINE_COMPLETE
+    global ROUTINE
+    global ROUTINE_LENGTH
+
+    while ROUTINE_LENGTH == 0:
+        await asyncio.sleep_ms(0)
+    if ROUTINE_LENGTH > 0:
+        print("################")
+        print("local_time: " + str(time.time_ns()))
+        print("start_time: " + str(start_time))
+        preshow()
+        while True:
+            command = ""
+            while ROUTINE_LENGTH > 0:
+                item = ROUTINE.pop(0)
+                ROUTINE_LENGTH = len(ROUTINE)
+                command = item[1]
+                command_time = int(item[0])
+                # wait till 9ms before command expected
+                while time.time_ns() < command_time - 9000000:
+                    # 200 ms then request to server
+                    if time.time_ns() < command_time - 200000000:
+                        await asyncio.sleep_ms(0)
+                ms_delta = (time.time_ns() - command_time) / 1000000
+                if DEBUG: print(
+                    "Delta ms: " + str(ms_delta) + " : time:" + str(time.time_ns()) + " : expectedTime:" + str(
+                        command_time) + " : Command: " + str(command))
+                # if delta is less than 75 ms run command
+                if ms_delta < 75:
+                    run_command(command)
+                else:
+                    print(">75ms delay:{} {} ".format(str(command_time), command))
+                if len(ROUTINE) == 0:
+                    await asyncio.sleep_ms(0)
+            if ROUTINE_COMPLETE:
+                print("Routine Complete")
+                break
+    end_show()
+
 @site.route("/run_lightshow", parameters="Not Sure")
 def run_lightshow(req, resp):
     yield from picoweb.start_response(resp, content_type="application/json")
     data = {}
     data.update({'received': 200})
     yield from resp.awrite(ujson.dumps(data))
-    routine_complete = False
-    routine = []
+    global ROUTINE_COMPLETE
+    ROUTINE_COMPLETE = False
+    global LAST_COMMAND
+    global ROUTINE_LENGTH
     d = qs_parse(req.qs)
-    start_time = d['starttime']
-    server_ip = d['server']
-
-    # get first X commands
-    routine, end_of_show = get_next_instructions(server_ip,"/lighshow/nextcommand", 5)
-    # print(routine)
-    if len(routine) > 0:
-        print("################")
-        print("local_time: " + str(time.time_ns()))
-        print("start_time: " + str(start_time))
-
-        preshow()
-        # check start time
-        # while time.time_ns() < start_time:
-        #     True
-        print("####### START #########")
-        print("local_time: " + str(time.time_ns()))
-        print("start_time: " + str(start_time))
-        while True:
-            str_key = ""
-
-            while len(routine) > 0:
-                item = routine.pop(0)
-                str_key = item[1]
-                int_key = int(item[0])
-                # 9ms before command expected
-                while time.time_ns() < int_key - 9000:
-                    # is more than 500 ms available before next command
-                    if time.time_ns() - (int_key - 9000) > 500000000:
-                        print("more than 500 ms")
-                        routine_new, end_of_show = get_next_instructions(server_ip, "/lighshow/nextcommand", 5,
-                                                                     str(int_key))
-                        if not end_of_show:
-                            routine.extend(routine_new)
-                    True
-                ms_delta = (time.time_ns() - int_key)/1000000
-                if DEBUG: print("Delta ms: " + str(ms_delta) + " : time:" + str(time.time_ns()) + " : expectedTime:" + str(int_key) + " : Command: " + str(str_key))
-                # if delta is less than 75 ms run command
-                if ms_delta < 75:
-                    run_command(str_key)
-                else:
-                    print("Delta too large not played")
-            # get next commands
-            if end_of_show:
-                break
-            routine, end_of_show = get_next_instructions(server_ip, "/lighshow/nextcommand", 5, str(int_key))
-            if end_of_show:
-                break
-    end_show()
-    data = {}
-    data.update({'status': 200})
-    yield from resp.awrite(ujson.dumps(data))
+    LAST_COMMAND = 0
+    ROUTINE_LENGTH = 0
+    loop = asyncio.get_event_loop()
+    # Wait for server to build lightshow index
+    time.sleep_ms(200)
+    loop.create_task(lightshow(d['starttime']))
+    loop.create_task(instructions(d['server'], "/lighshow/nextcommand"))
 
 
 def try_int(val):
@@ -187,8 +188,10 @@ def preshow():
     time.sleep_ms(50)
     lights.rgb(0, 0, 0)
 
+
 def end_show():
     lights.rgb(25, 25, 25)
+
 
 def run_command(command):
     try:
@@ -200,46 +203,51 @@ def run_command(command):
         pass
 
 
-def get_next_instructions(server_ip, path, number_of_commands, last_command="0"):
-    routine = {}
-    end_of_show = False
+async def instructions(server_ip, path):
+    global ROUTINE
+    global ROUTINE_COMPLETE
+    global LAST_COMMAND
+    global ROUTINE_LENGTH
+    routine = []
     url = "http://" + server_ip + path
-    print(url)
-    pb_headers = {
-        'Content-Type': 'application/json'
-    }
-    data = ujson.dumps({'limit': number_of_commands, 'last_command': last_command})
-    retry_max = 5
-    i = 0
-    gc.collect()
-    while len(routine) == 0:
-        try:
-            response = urequests.post(url, headers=pb_headers, json=data)
-            time.sleep_ms(i * 100)
-            routine_json = response.json()
-            print(routine_json)
-            response.close()
-            routine = list(sorted(routine_json.items()))
-            # routine = ucollections.OrderedDict(sorted(routine_json.items()))
-            # print(routine)
-        except Exception as e:
-            print("unable to get next set of commands trying once more {}".format(e))
-            pass
-        if i >= retry_max + 1:
-            print("Max Retry's reached")
-            end_of_show = True
-            break
-        i = i + 1
-    print(routine)
-    if 'end' in routine:
-        end_of_show = True
-    if len(routine) == 0:
-        end_of_show = True
-    if len(routine) == 1:
-        end_of_show = True
-    if end_of_show:
-        print("end of show reached")
-    return routine, end_of_show
+    pb_headers = {'Content-Type': 'application/json'}
+    while not ROUTINE_COMPLETE:
+        while ROUTINE_LENGTH >= MAX_QUEUE - 1:
+            await asyncio.sleep_ms(0)
+        number_of_commands = MAX_QUEUE - ROUTINE_LENGTH
+        data = ujson.dumps({'limit': number_of_commands, 'last_command': str(LAST_COMMAND)})
+        retry_max = 5
+        i = 0
+        gc.collect()
+        while len(routine) == 0:
+            try:
+                response = urequests.post(url, headers=pb_headers, json=data)
+                if i > 0:
+                    asyncio.sleep_ms(i * 100)
+                routine_json = response.json()
+                response.close()
+                routine = list(sorted(routine_json.items()))
+            except Exception as e:
+                print("Failed to retrieve commands: {}".format(e))
+                pass
+            if i >= retry_max + 1:
+                print("Max Retry reached")
+                ROUTINE_COMPLETE = True
+                break
+            i = i + 1
+        if len(routine) == 1:
+            if routine[0][0] is 'end':
+                ROUTINE_COMPLETE = True
+        if ROUTINE_COMPLETE:
+            print("Last Command Received")
+            await asyncio.sleep_ms(0)
+        else:
+            if len(routine) > 0:
+                LAST_COMMAND = int(routine[-1][0])
+                ROUTINE.extend(routine)
+                routine = []
+                ROUTINE_LENGTH = len(ROUTINE)
+                await asyncio.sleep_ms(0)
 
 
 site.run(host='0.0.0.0', debug=False, port=80)
