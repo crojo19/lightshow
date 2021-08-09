@@ -31,17 +31,16 @@ try:
     ntptime.host = str(configure.read_config_file('server_ip'))
     ntptime.settime()
 except:
+    print("unable to update time")
     pass
 
-# create schedule
-# schedule = {}
 
 # if module in config load module
 from . import ws2811
 from .ws2811 import lights
 site.mount("/led", ws2811.app)
 
-@site.route("/", parameters="None")
+@site.route("/", parameters="None", description="Show Site Map")
 def index(req, resp):
     yield from picoweb.start_response(resp)
     for item in site.get_url_map():
@@ -56,52 +55,36 @@ def index(req, resp):
                 yield from resp.awrite("</p>")
 
 
-@site.route("/status", parameters="", description="Return 200 if available")
+@site.route("/status", parameters="None", description="Returns json 200")
 def status(req, resp):
     yield from picoweb.start_response(resp, content_type="application/json")
     yield from resp.awrite(ujson.dumps({'status': 200}))
 
 
-@site.route("/config", parameters="None")
+@site.route("/config", parameters="None", description="Returns device configuraration")
 def config(req, resp):
     yield from picoweb.start_response(resp, content_type="application/json")
+    yield from resp.awrite(str(admin.config()))
 
-    data = configure.read_config_file()
-    import ubinascii
-    import network
-    data.update({'mac_address': ubinascii.hexlify(network.WLAN().config('mac'), ':').decode()})
-    (ip, other, other1, other2) = network.WLAN().ifconfig()
-    data.update({'ip_address': ip})
 
-    from .ota_updater import OTAUpdater
-    o = OTAUpdater(configure.read_config_file("update_repo"), github_auth_token=configure.read_config_file('update_repo_token'))
-    current_version = o.get_current_version()
-    data.update({'installed_version': current_version})
-
-    import os
-    uname = os.uname()
-    data.update({'sysname': uname.sysname})
-    data.update({'release': uname.release})
-    data.update({'version': uname.version})
-    data.update({'machine': uname.machine})
-
-    from . import wifimgr
-    wifi = wifimgr.read_profiles()
-    data.update({'wifi': wifi})
-
-    items = {}
-    i = 0
-    for item in site.get_url_map():
-        if str(item[0]).startswith('/'):
-            items.update({i: str(item[0])})
-            i = i + 1
-    for mount in site.get_mounts():
-        for item in mount.get_url_map():
-            if not str(item[0]).endswith("/"):
-                items.update({i: str(item[0])})
-                i = i + 1
-    data.update({'admin_routes': items})
+@site.route("/run_lightshow", parameters="starttime, server", description="Initiate light show function on device")
+def run_lightshow(req, resp):
+    yield from picoweb.start_response(resp, content_type="application/json")
+    data = {}
+    data.update({'received': 200})
     yield from resp.awrite(ujson.dumps(data))
+    global ROUTINE_COMPLETE
+    ROUTINE_COMPLETE = False
+    global LAST_COMMAND
+    global ROUTINE_LENGTH
+    d = qs_parse(req.qs)
+    LAST_COMMAND = 0
+    ROUTINE_LENGTH = 0
+    loop = asyncio.get_event_loop()
+    # Wait for server to build lightshow index
+    time.sleep_ms(200)
+    loop.create_task(lightshow(d['starttime']))
+    loop.create_task(instructions(d['server'], "/lighshow/nextcommand"))
 
 
 async def lightshow(start_time):
@@ -143,25 +126,6 @@ async def lightshow(start_time):
                 print("Routine Complete")
                 break
     end_show()
-
-@site.route("/run_lightshow", parameters="Not Sure")
-def run_lightshow(req, resp):
-    yield from picoweb.start_response(resp, content_type="application/json")
-    data = {}
-    data.update({'received': 200})
-    yield from resp.awrite(ujson.dumps(data))
-    global ROUTINE_COMPLETE
-    ROUTINE_COMPLETE = False
-    global LAST_COMMAND
-    global ROUTINE_LENGTH
-    d = qs_parse(req.qs)
-    LAST_COMMAND = 0
-    ROUTINE_LENGTH = 0
-    loop = asyncio.get_event_loop()
-    # Wait for server to build lightshow index
-    time.sleep_ms(200)
-    loop.create_task(lightshow(d['starttime']))
-    loop.create_task(instructions(d['server'], "/lighshow/nextcommand"))
 
 
 def try_int(val):

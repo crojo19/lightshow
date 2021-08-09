@@ -127,10 +127,27 @@ def config_get(req, resp):
 @app.route("/config/update")
 def config_update(req, resp):
     yield from picoweb.start_response(resp)
-    d = qs_parse(req.qs)
+    parsed_url = urldecode(req.qs)
+    print(parsed_url)
+    # parsed_url = unquote(parsed_url)
+    d = qs_parse(parsed_url)
+
+    if 'dataTable-1_length' in d:
+        del d['dataTable-1_length']
+    if '''b"b'dataTable-1_length''' in d:
+        del d['''b"b'dataTable-1_length''']
+
+    print(d)
     yield from resp.awrite(configure.put_config_items(d))
     time.sleep(2)
     machine.reset()
+
+
+def urldecode(stuff):
+    dic = {"%21":"!","%22":'"',"%23":"#","%24":"$","%26":"&","%27":"'","%28":"(","%29":")","%2A":"*","%2B":"+","%2C":",","%2F":"/","%3A":":","%3B":";","%3D":"=","%3F":"?","%40":"@","%5B":"[","%5D":"]","%7B":"{","%7D":"}"}
+    for k,v in dic.items():
+        stuff=stuff.replace(k,v)
+    return stuff
 
 
 @app.route("/config/add_ssid")
@@ -182,34 +199,40 @@ def status(req, resp):
 
 
 def config():
-    # Create based on config file
-    data = configure.read_config_file()
-    # add Mac address
-    data.update({'mac_address': ubinascii.hexlify(network.WLAN().config('mac'), ':').decode()})
-    # add ip address
+    data = {}
+    data.update({'config_file': configure.read_config_file()})
+
+    data['network'] = {}
+    data['network'].update({'mac_address': ubinascii.hexlify(network.WLAN().config('mac'), ':').decode()})
     (ip, other, other1, other2) = network.WLAN().ifconfig()
-    data.update({'ip_address': ip})
-    # get current installed app version
-    o = OTAUpdater(configure.read_config_file("update_repo"), github_auth_token=configure.read_config_file('update_repo_token'))
-    current_version = o.get_current_version()
-    data.update({'installed_version': current_version})
+    data['network'].update({'ip_address': ip})
+    wifi = wifimgr.read_profiles()
+    data['network'].update({'wifi': wifi})
+
+    data['software'] = {}
+    o = OTAUpdater(configure.read_config_file("update_repo"),
+                   github_auth_token=configure.read_config_file('update_repo_token'))
+    data['software'].update({'installed_version': o.get_current_version()})
+
+    data['hardware'] = {}
     import os
     uname = os.uname()
-    data.update({'sysname': uname.sysname})
-    data.update({'release': uname.release})
-    data.update({'version': uname.version})
-    data.update({'machine': uname.machine})
+    data['hardware'].update({'sysname': uname.sysname})
+    data['hardware'].update({'machine': uname.machine})
+    data['os'] = {}
+    data['os'].update({'release': uname.release})
+    data['os'].update({'version': uname.version})
 
-    wifi = wifimgr.read_profiles()
-    data.update({'wifi': wifi})
+    data['routes'] = {}
     items = {}
     i = 0
     for item in app.get_url_map():
         if str(item[0]).startswith('/'):
             items.update({i: str(item[0])})
         i = i+1
-    data.update({'admin_routes': items})
-    return data
+    data['routes'].update({'admin_routes': items})
+    data.update({'config_version': "0.2"})
+    return ujson.dumps(data)
 
 
 if __name__ == "__main__":
