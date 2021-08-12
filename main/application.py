@@ -84,7 +84,7 @@ def run_lightshow(req, resp):
     # Wait for server to build lightshow index
     time.sleep_ms(200)
     loop.create_task(lightshow(d['starttime']))
-    loop.create_task(instructions(d['server'], "/lighshow/nextcommand"))
+    loop.create_task(instructions(d['server'], "/lightshow/nextcommand"))
 
 
 async def lightshow(start_time):
