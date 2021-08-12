@@ -75,7 +75,8 @@ def updatesoftware(req, resp):
         yield from resp.awrite("<p>Latest Version: " + str(latest_version) + "</p>")
         yield from resp.awrite("rebooting")
         o.set_version_on_reboot(latest_version)
-        machine.reset()
+        loop = asyncio.get_event_loop()
+        loop.create_task(reboot_ms(1000))
 
     else:
         yield from resp.awrite("<p>no update available</p>")
