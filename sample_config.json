@@ -1,0 +1,15 @@
+{
+  "name": "UNPROVISIONED",
+  "count": "1",
+  "server_ip": "192.168.1.22",
+  "ntp_server_ip": "192.168.1.22",
+  "type": "WS2811",
+  "modules": ["admin"],
+  "check_in_port": 80,
+  "check_in_url": "/device/check_in/",
+  "update_repo": "https://github.com/crojo19/lightshow",
+  "update_repo_token": "<TOKEN>",
+  "setup_wifi_prefix": "WIFI_SETUP_",
+  "setup_wifi_password": "complexpassword",
+  "max_routine_queue": 50
+}
