@@ -233,7 +233,7 @@ def qs_parse(qs):
     return res
 
 
-@app.route("/")
+@app.route("/", parameters="None", description="Show LED Site Map")
 def index(req, resp):
     yield from picoweb.start_response(resp)
     for item in app.get_url_map():
@@ -242,83 +242,82 @@ def index(req, resp):
         yield from resp.awrite("</p>")
 
 
-@app.route("/color/red")
+@app.route("/color/red", parameters="brightness", description="all lights red")
 def color_red(req, resp):
     yield from picoweb.start_response(resp)
     lights.red(**qs_parse(req.qs))
 
 
-@app.route("/color/green")
+@app.route("/color/green", parameters="brightness", description="all lights green")
 def color_green(req, resp):
     yield from picoweb.start_response(resp)
     lights.green(**qs_parse(req.qs))
 
 
-@app.route("/color/blue")
+@app.route("/color/blue", parameters="brightness", description="all lights blue")
 def color_blue(req, resp):
     yield from picoweb.start_response(resp)
     lights.blue(**qs_parse(req.qs))
 
 
-@app.route("/color/white")
+@app.route("/color/white", parameters="brightness", description="all lights white")
 def color_white(req, resp):
     yield from picoweb.start_response(resp)
     lights.white(**qs_parse(req.qs))
 
 
-@app.route("/color/rgb")
+@app.route("/color/rgb", parameters="red, green, blue", description="all lights r,g,b")
 def color_rgb(req, resp):
     yield from picoweb.start_response(resp)
     lights.rgb(**qs_parse(req.qs))
 
 
-@app.route("/color/off")
+@app.route("/color/off", parameters="None", description="all lights off")
 def color_off(req, resp):
     yield from picoweb.start_response(resp)
     lights.off()
-    yield from resp.awrite(req.qs)
 
 
-@app.route("/routine/flash")
+@app.route("/routine/flash", parameters="red, green, blue, timems, count", description="flash on and off (legacy)")
 def routine_flash2(req, resp):
     yield from picoweb.start_response(resp)
     lights.flash(**qs_parse(req.qs))
 
-@app.route("/routine/flash_2")
+@app.route("/routine/flash_2", parameters="red1, green1, blue1, red2, green2, blue2, totaltimems, timewaitms", description="flash lights between 2 colors")
 def routine_flash2(req, resp):
     yield from picoweb.start_response(resp)
     lights.flash_2(**qs_parse(req.qs))
 
 
-@app.route("/routine/colorwipe")
+@app.route("/routine/colorWipe", parameters="red, green, blue, timems", description="wipe color accross LEDs (legacy)")
 def routine_colorwipe(req, resp):
     yield from picoweb.start_response(resp)
     lights.colorWipe(**qs_parse(req.qs))
 
 
-@app.route("/routine/color_wipe")
+@app.route("/routine/color_wipe", parameters="red, green, blue, timems, direction", description="wipe color accross LEDs")
 def routine_color_wipe(req, resp):
     yield from picoweb.start_response(resp)
     lights.color_wipe_2(**qs_parse(req.qs))
 
 
-@app.route("/routine/rainbow")
+@app.route("/routine/rainbow", parameters="timems", description="rainbow color accross strip (broken)")
 def routine_rainbow(req, resp):
     yield from picoweb.start_response(resp)
     lights.rainbow_cycle(**qs_parse(req.qs))
 
 
-@app.route("/routine/alternate")
+@app.route("/routine/alternate", parameters="red1, green1, blue1, red2, green2, blue2", description="alternate colors of lights")
 def routine_alternate(req, resp):
     yield from picoweb.start_response(resp)
     lights.alternate(**qs_parse(req.qs))
 
-@app.route("/routine/fade")
+@app.route("/routine/fade", parameters="red1, green1, blue1, red2, green2, blue2, steps, timems", description="fade between 2 colors over time")
 def routine_alternate(req, resp):
     yield from picoweb.start_response(resp)
     lights.fade(**qs_parse(req.qs))
 
-@app.route("/routine/runner")
+@app.route("/routine/runner", parameters="red, green, blue, timems, count", description="run small # of lights accross led strand in a direction")
 def routine_runner(req, resp):
     yield from picoweb.start_response(resp)
     lights.runner(**qs_parse(req.qs))
