@@ -129,8 +129,6 @@ def config_get(req, resp):
 def config_update(req, resp):
     yield from picoweb.start_response(resp)
     parsed_url = urldecode(req.qs)
-    print(parsed_url)
-    # parsed_url = unquote(parsed_url)
     d = qs_parse(parsed_url)
 
     if 'dataTable-1_length' in d:
@@ -138,7 +136,6 @@ def config_update(req, resp):
     if '''b"b'dataTable-1_length''' in d:
         del d['''b"b'dataTable-1_length''']
 
-    print(d)
     yield from resp.awrite(configure.put_config_items(d))
     time.sleep(2)
     machine.reset()
@@ -180,6 +177,18 @@ def status_updateserver(req, resp):
         update_server()
 
 
+# TODO sending error messages to server for logging and review
+def send_error(port=80, error_url="/error"):
+    # perform post to server IP @ port in config with configuration data
+    url = "http://" + str(configure.read_config_file('server_ip')) + ":" + str(port) + error_url
+    pb_headers = {
+        'Content-Type': 'application/json'
+    }
+    data = {'error': 'data'}
+    response = urequests.post(url, headers=pb_headers, json=data)
+    response.close()
+
+
 def update_server(port=80, check_in_url="/device/check_in/"):
     # perform post to server IP @ port in config with configuration data
     url = "http://" + str(configure.read_config_file('server_ip')) + ":" + str(port) + check_in_url +\
@@ -217,9 +226,13 @@ def config():
 
     data['hardware'] = {}
     import os
+    import machine
+
     uname = os.uname()
     data['hardware'].update({'sysname': uname.sysname})
     data['hardware'].update({'machine': uname.machine})
+    data['hardware'].update({'frequency': machine.freq()})
+
     data['os'] = {}
     data['os'].update({'release': uname.release})
     data['os'].update({'version': uname.version})
