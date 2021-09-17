@@ -2,6 +2,7 @@ from . import picoweb
 from . import admin
 from . import configure
 from .timing import ntptime
+from .error import write_error, send_error
 import ujson
 import time
 import urequests
@@ -33,6 +34,10 @@ try:
 except:
     print("unable to update time")
     pass
+try:
+    send_error(server_ip=str(configure.read_config_file('server_ip')))
+except Exception as e:
+    write_error(e)
 
 
 # if module in config load module

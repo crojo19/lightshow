@@ -1,5 +1,5 @@
 from main.ota_updater import OTAUpdater
-
+from main.error import write_error
 
 def update_software():
     from main import configure
@@ -17,6 +17,7 @@ def start_app():
         application()
     except Exception as e:
         print(str(e))
+        write_error(e)
         import machine
         machine.reset()
 
