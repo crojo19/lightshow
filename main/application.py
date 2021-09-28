@@ -88,6 +88,7 @@ def run_lightshow(req, resp):
     loop = asyncio.get_event_loop()
     # Wait for server to build lightshow index
     time.sleep_ms(200)
+    print(d)
     loop.create_task(lightshow(d['starttime']))
     loop.create_task(instructions(d['server'], "/lightshow/nextcommand"))
 
@@ -219,4 +220,11 @@ async def instructions(server_ip, path):
                 await asyncio.sleep_ms(0)
 
 
+def active_routine_check():
+    loop = asyncio.get_event_loop()
+    loop.create_task(lightshow(time.time_ns()))
+    loop.create_task(instructions(str(configure.read_config_file('server_ip')), "/lightshow/nextcommand"))
+
+
+active_routine_check()
 site.run(host='0.0.0.0', debug=False, port=80)
