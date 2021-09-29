@@ -4,7 +4,7 @@
   "server_ip": "192.168.1.22",
   "ntp_server_ip": "192.168.1.22",
   "type": "WS2811",
-  "modules": ["admin"],
+  "modules": "admin,ws2811,servo",
   "check_in_port": 80,
   "check_in_url": "/device/check_in/",
   "update_repo": "https://github.com/crojo19/lightshow",
