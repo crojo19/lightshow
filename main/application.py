@@ -1,5 +1,4 @@
 from . import picoweb
-from . import admin
 from . import configure
 from .timing import ntptime
 from .error import write_error, send_error
@@ -17,33 +16,35 @@ LAST_COMMAND = 0
 MAX_QUEUE = 50 if configure.read_config_file('max_routine_queue') is None else int(configure.read_config_file('max_routine_queue'))
 
 site = picoweb.WebApp(__name__)
+
+# if module in config load module
+modules = ""
+try:
+    modules = configure.read_config_file('modules')
+    modules = modules.split(',')
+except Exception as e:
+    write_error(e)
+    pass
+
 # always load admin module
+from . import admin
+print("Module admin Loading")
 site.mount("/admin", admin.app)
 
 try:
-    print("Checking in with server")
-    admin.update_server()
-except:
-    print("unable to contact server")
-    pass
-try:
-    # sync time with server
-    print("Syncing with time server")
-    ntptime.host = str(configure.read_config_file('server_ip'))
-    ntptime.settime()
-except:
-    print("unable to update time")
-    pass
-try:
-    send_error(server_ip=str(configure.read_config_file('server_ip')))
+    if 'ws2811' in modules:
+        print("Module ws2811 Loading")
+        from . import ws2811
+        from .ws2811 import lights
+        site.mount("/led", ws2811.app)
+    if 'servo' in modules:
+        print("Module Servo Loading")
+        from . import servo
+        site.mount("/servo", servo.app)
 except Exception as e:
     write_error(e)
+    pass
 
-
-# if module in config load module
-from . import ws2811
-from .ws2811 import lights
-site.mount("/led", ws2811.app)
 
 @site.route("/", parameters="None", description="Show Site Map")
 def index(req, resp):
@@ -226,5 +227,27 @@ def active_routine_check():
     loop.create_task(instructions(str(configure.read_config_file('server_ip')), "/lightshow/nextcommand"))
 
 
+def initilize():
+    # initial Communication
+    try:
+        print("Checking in with server")
+        admin.update_server()
+    except:
+        print("unable to contact server")
+        pass
+    try:
+        # sync time with server
+        print("Syncing with time server")
+        ntptime.host = str(configure.read_config_file('server_ip'))
+        ntptime.settime()
+    except:
+        print("unable to update time")
+        pass
+    try:
+        send_error(server_ip=str(configure.read_config_file('server_ip')))
+    except Exception as e:
+        write_error(e)
+
+initilize()
 active_routine_check()
 site.run(host='0.0.0.0', debug=False, port=80)
