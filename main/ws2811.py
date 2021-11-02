@@ -4,9 +4,9 @@ from . import configure
 
 
 class ws2811:
-    def __init__(self, light_count, rgb=False, gbr=False, rbg=False, grb=False, brg=False):
+    def __init__(self, light_count, pin=5, rgb=False, gbr=False, rbg=False, grb=False, brg=False):
         self.PIXEL_COUNT = light_count
-        self.np = neopixel.NeoPixel(machine.Pin(5), self.PIXEL_COUNT)
+        self.np = neopixel.NeoPixel(machine.Pin(pin), self.PIXEL_COUNT)
         self.GRB = grb
         self.GBR = gbr
         self.RBG = rbg

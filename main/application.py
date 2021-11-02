@@ -11,7 +11,7 @@ import uasyncio as asyncio
 ROUTINE = []
 ROUTINE_COMPLETE = False
 ROUTINE_LENGTH = 0
-DEBUG = False
+DEBUG = True
 LAST_COMMAND = 0
 MAX_QUEUE = 50 if configure.read_config_file('max_routine_queue') is None else int(configure.read_config_file('max_routine_queue'))
 
@@ -39,8 +39,9 @@ try:
         site.mount("/led", ws2811.app)
     if 'servo' in modules:
         print("Module Servo Loading")
-        from . import servo
-        site.mount("/servo", servo.app)
+        from . import servo as servo_mod
+        from.servo import servo
+        site.mount("/servo", servo_mod.app)
 except Exception as e:
     write_error(e)
     pass
@@ -151,23 +152,34 @@ def qs_parse(qs):
 
 
 def preshow():
-    lights.rgb(55, 0, 0)
-    time.sleep_ms(50)
-    lights.rgb(0, 55, 0)
-    time.sleep_ms(50)
-    lights.rgb(0, 0, 55)
-    time.sleep_ms(50)
-    lights.rgb(0, 0, 0)
+    try:
+        lights.rgb(55, 0, 0)
+        time.sleep_ms(50)
+        lights.rgb(0, 55, 0)
+        time.sleep_ms(50)
+        lights.rgb(0, 0, 55)
+        time.sleep_ms(50)
+        lights.rgb(0, 0, 0)
+    except Exception as e:
+        write_error(e)
+        pass
+    return
 
 
 def end_show():
-    lights.rgb(25, 25, 25)
+    try:
+        lights.rgb(25, 25, 25)
+    except Exception as es:
+        write_error(es)
+        pass
 
 
 def run_command(command):
     try:
         if command['command_type'] == "lights":
             getattr(lights, command['function'])(**command['parameters'])
+        elif command['command_type'] == "servo":
+            getattr(servo, command['function'])(**command['parameters'])
     except Exception as e:
         print(str(e))
         print("ERROR - Command Failed to run: " + str(command))

@@ -1,17 +1,25 @@
 import time
-import machine, neopixel
+import machine
 from . import configure
 
-
-class servo:
-    def __init__(self, pin=2, frequency=55):
+class Servo:
+    def __init__(self, pin=5, frequency=55):
         p2 = machine.Pin(pin)
         self.servo = machine.PWM(p2)
+        self.max_duty = int(configure.read_config_file("servo_max"))
+        self.min_duty = int(configure.read_config_file("servo_min"))
+        self.up_duty = int(configure.read_config_file("servo_up"))
+        self.down_duty = int(configure.read_config_file("servo_down"))
+
         self.servo.freq(frequency)
         self.servo.duty(frequency)
 
     def move(self, duty=None, totaltimems=0):
         if duty is None:
+            return
+        elif duty > self.max_duty:
+            return
+        elif duty < self.min_duty:
             return
         if totaltimems == 0:
             self.servo.duty(duty)
@@ -28,13 +36,18 @@ class servo:
                 self.servo.duty(i)
                 time.sleep_ms(time_per_duty)
 
+    def up(self, totaltimems=0):
+        self.move(duty=self.up_duty, totaltimems=totaltimems)
+
+    def down(self, totaltimems=0):
+        self.move(duty=self.down_duty, totaltimems=totaltimems)
 
 
 from . import picoweb
 
 app = picoweb.WebApp(__name__)
 
-active_servo = servo()
+servo = Servo()
 
 
 def try_int(val):
@@ -66,7 +79,19 @@ def index(req, resp):
 @app.route("/move", parameters="duty, totaltimems", description="")
 def move(req, resp):
     yield from picoweb.start_response(resp)
-    active_servo.move(**qs_parse(req.qs))
+    servo.move(**qs_parse(req.qs))
+
+
+@app.route("/up", parameters="totaltimems", description="")
+def up(req, resp):
+    yield from picoweb.start_response(resp)
+    servo.up(**qs_parse(req.qs))
+
+
+@app.route("/down", parameters="totaltimems", description="")
+def move(req, resp):
+    yield from picoweb.start_response(resp)
+    servo.down(**qs_parse(req.qs))
 
 
 if __name__ == "__main__":
