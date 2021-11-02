@@ -11,7 +11,7 @@ import uasyncio as asyncio
 ROUTINE = []
 ROUTINE_COMPLETE = False
 ROUTINE_LENGTH = 0
-DEBUG = True
+DEBUG = False
 LAST_COMMAND = 0
 MAX_QUEUE = 50 if configure.read_config_file('max_routine_queue') is None else int(configure.read_config_file('max_routine_queue'))
 
