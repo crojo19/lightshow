@@ -243,7 +243,13 @@ def initilize():
     # initial Communication
     try:
         print("Checking in with server")
-        admin.update_server()
+        port = configure.read_config_file('check_in_port')
+        check_in_url = configure.read_config_file('check_in_url')
+        if port is None:
+            port = 80  # default port
+        if check_in_url is None:
+            check_in_url = "/device/check_in/"  # default url
+        admin.update_server(port=port, check_in_url=check_in_url)
     except:
         print("unable to contact server")
         pass
@@ -252,13 +258,16 @@ def initilize():
         print("Syncing with time server")
         ntptime.host = str(configure.read_config_file('server_ip'))
         ntptime.settime()
-    except:
+    except Exception as e:
+        print(e)
+        write_error(e)
         print("unable to update time")
         pass
     try:
         send_error(server_ip=str(configure.read_config_file('server_ip')))
     except Exception as e:
         write_error(e)
+
 
 initilize()
 active_routine_check()
