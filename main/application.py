@@ -7,13 +7,18 @@ import time
 import urequests
 import gc
 import uasyncio as asyncio
+import network
 
 ROUTINE = []
 ROUTINE_COMPLETE = False
 ROUTINE_LENGTH = 0
 DEBUG = False
 LAST_COMMAND = 0
+
 MAX_QUEUE = 50 if configure.read_config_file('max_routine_queue') is None else int(configure.read_config_file('max_routine_queue'))
+
+(ip, other, other1, other2) = network.WLAN().ifconfig()
+IPADDRESS = ip
 
 site = picoweb.WebApp(__name__)
 
@@ -92,7 +97,7 @@ def run_lightshow(req, resp):
     time.sleep_ms(200)
     print(d)
     loop.create_task(lightshow(d['starttime']))
-    loop.create_task(instructions(d['server'], "/lightshow/nextcommand"))
+    loop.create_task(instructions(d['server'], configure.read_config_file('check_in_port'), "/lightshow/nextcommand"))
 
 
 async def lightshow(start_time):
@@ -186,19 +191,19 @@ def run_command(command):
         pass
 
 
-async def instructions(server_ip, path):
+async def instructions(server_ip, server_port, path):
     global ROUTINE
     global ROUTINE_COMPLETE
     global LAST_COMMAND
     global ROUTINE_LENGTH
     routine = []
-    url = "http://" + server_ip + path
+    url = "http://" + server_ip + ":" + str(server_port) + path
     pb_headers = {'Content-Type': 'application/json'}
     while not ROUTINE_COMPLETE:
         while ROUTINE_LENGTH >= MAX_QUEUE - 1:
             await asyncio.sleep_ms(0)
         number_of_commands = MAX_QUEUE - ROUTINE_LENGTH
-        data = ujson.dumps({'limit': number_of_commands, 'last_command': str(LAST_COMMAND)})
+        data = ujson.dumps({'ip': IPADDRESS, 'limit': number_of_commands, 'last_command': str(LAST_COMMAND)})
         retry_max = 5
         i = 0
         gc.collect()
@@ -234,9 +239,10 @@ async def instructions(server_ip, path):
 
 
 def active_routine_check():
+    print("checking for active show")
     loop = asyncio.get_event_loop()
     loop.create_task(lightshow(time.time_ns()))
-    loop.create_task(instructions(str(configure.read_config_file('server_ip')), "/lightshow/nextcommand"))
+    loop.create_task(instructions(str(configure.read_config_file('server_ip')), configure.read_config_file('check_in_port'), "/lightshow/nextcommand"))
 
 
 def initilize():
