@@ -79,7 +79,7 @@ def config(req, resp):
     yield from resp.awrite(str(admin.config()))
 
 
-@site.route("/run_lightshow", parameters="starttime, server", description="Initiate light show function on device")
+@site.route("/run_lightshow", parameters="starttime, server, port", description="Initiate light show function on device")
 def run_lightshow(req, resp):
     yield from picoweb.start_response(resp, content_type="application/json")
     data = {}
@@ -97,7 +97,7 @@ def run_lightshow(req, resp):
     time.sleep_ms(200)
     print(d)
     loop.create_task(lightshow(d['starttime']))
-    loop.create_task(instructions(d['server'], configure.read_config_file('check_in_port'), "/lightshow/nextcommand"))
+    loop.create_task(instructions(d['server'], d['port'], "/lightshow/nextcommand"))
 
 
 async def lightshow(start_time):
