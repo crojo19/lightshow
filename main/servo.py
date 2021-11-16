@@ -11,7 +11,7 @@ class Servo:
         self.up_duty = int(configure.read_config_file("servo_up"))
         self.down_duty = int(configure.read_config_file("servo_down"))
 
-        self.servo.freq(self.down_duty)
+        self.servo.freq(frequency)
         self.servo.duty(self.down_duty)
 
     def move(self, duty=None, totaltimems=0):
