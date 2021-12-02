@@ -157,6 +157,16 @@ def wifi_config(req, resp):
             import machine
             machine.reset()
         yield from resp.awrite(ujson.dumps({'connection_status': 'Unable to connect'}))
+        
+        
+@site.route("/reboot")
+def reboot(req, resp):
+    yield from picoweb.start_response(resp, content_type="application/json")
+    yield from resp.awrite(ujson.dumps({'reboot': 'yes'}))
+    wlan_ap.active(False)
+    time.sleep_ms(1500)
+    import machine
+    machine.reset()
 
 
 def try_int(val):
