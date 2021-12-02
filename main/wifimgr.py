@@ -117,8 +117,9 @@ def delete_profile_item(ssid):
 
 def do_connect(ssid, password):
     wlan_sta.active(True)
+    wlan_sta.disconnect()
     if wlan_sta.isconnected():
-        return None
+        return True
     print('Trying to connect to %s...' % ssid)
     wlan_sta.connect(ssid, password)
     for retry in range(100):
