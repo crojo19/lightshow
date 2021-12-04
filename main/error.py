@@ -9,12 +9,12 @@ def write_error(error):
         logf.write(str(time.gmtime()) + " - " + str(error))
 
 
-def send_error(server_ip=None):
+def send_error(server_ip=None, server_port=80):
     if server_ip is None:
         write_error("server_ip not in configuration file")
         return
     reset = machine.reset_cause()
-    url = "http://" + str(server_ip) + "/error"
+    url = "http://" + str(server_ip) + ":" + str(server_port) + "/error"
     pb_headers = {'Content-Type': 'application/json'}
 
     errors = []

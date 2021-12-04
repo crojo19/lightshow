@@ -33,6 +33,7 @@ except Exception as e:
 
 # always load admin module
 from . import admin
+from .admin import set_time
 print("Module admin Loading")
 site.mount("/admin", admin.app)
 
@@ -105,6 +106,7 @@ async def lightshow(start_time):
     global ROUTINE
     global ROUTINE_LENGTH
 
+    set_time()
     while ROUTINE_LENGTH == 0:
         await asyncio.sleep_ms(0)
     if ROUTINE_LENGTH > 0:
@@ -270,7 +272,7 @@ def initilize():
         print("unable to update time")
         pass
     try:
-        send_error(server_ip=str(configure.read_config_file('server_ip')))
+        send_error(server_ip=str(configure.read_config_file('server_ip')), server_port=configure.read_config_file('check_in_port'))
     except Exception as e:
         write_error(e)
 

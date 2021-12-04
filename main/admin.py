@@ -101,6 +101,15 @@ def config_get(req, resp):
     yield from resp.awrite(timess)
 
 
+def set_time():
+    try:
+        ntptime.host = str(configure.read_config_file('server_ip'))
+        ntptime.settime()
+    except Exception:
+        print("unable to get time synced")
+        pass
+
+
 def try_int(val):
     try:
         return int(val)
