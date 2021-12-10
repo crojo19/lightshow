@@ -143,6 +143,45 @@ async def lightshow(start_time):
     end_show()
 
 
+@site.route("/run_queue", parameters="queue_name, server, port", description="Initiate light show function on device")
+def run_queue(req, resp):
+    yield from picoweb.start_response(resp, content_type="application/json")
+    data = {'received': 200}
+    yield from resp.awrite(ujson.dumps(data))
+    d = qs_parse(req.qs)
+    loop = asyncio.get_event_loop()
+    print(d)
+    loop.create_task(queue(d['server'], d['port'], d['queue_name'], "/queue/next"))
+
+
+async def queue(server_ip, server_port, queue_name, path):
+    routine = None
+    url = "http://" + server_ip + ":" + str(server_port) + path
+    pb_headers = {'Content-Type': 'application/json'}
+
+    data = ujson.dumps({'ip': IPADDRESS, 'queue': queue_name, 'id': 0})
+    gc.collect()
+    while True:
+        try:
+            response = urequests.post(url, headers=pb_headers, json=data)
+            routine = response.json()
+            print(routine)
+            response.close()
+        except Exception as e:
+            print("Failed to retrieve commands: {}".format(e))
+            pass
+        if routine is not None:
+            run_command(routine['command'])
+            if "id" in routine:
+                if routine['id'] == -1:
+                    break
+            if "sleepms" in routine['command']:
+                time.sleep_ms(routine['command']['sleepms'])
+            data = ujson.dumps({'ip': IPADDRESS, 'queue': queue_name, 'id': routine['id']})
+            routine = None
+            gc.collect()
+
+
 def try_int(val):
     try:
         return int(val)

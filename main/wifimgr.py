@@ -126,7 +126,7 @@ def do_connect(ssid, password):
         connected = wlan_sta.isconnected()
         if connected:
             break
-        time.sleep(0.1)
+        time.sleep(0.2)
         print('.', end='')
     if connected:
         print('\nConnected. Network config: ', wlan_sta.ifconfig())
