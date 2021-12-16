@@ -95,6 +95,7 @@ def config_get(req, resp):
     else:
         d = qs_parse(req.qs)
         ntptime.host = str(d['ntp'])
+
     ntptime.settime()
     timess = str(time.time_ns())
     print(timess)
@@ -146,8 +147,8 @@ def config_update(req, resp):
         del d['''b"b'dataTable-1_length''']
 
     yield from resp.awrite(configure.put_config_items(d))
-    time.sleep(2)
-    machine.reset()
+    loop = asyncio.get_event_loop()
+    loop.create_task(reboot_ms(1000))
 
 
 def urldecode(stuff):
@@ -162,8 +163,8 @@ def config_add_ssid(req, resp):
     yield from picoweb.start_response(resp)
     d = qs_parse(req.qs)
     wifimgr.add_profile_item(d['ssid'], d['password'])
-    time.sleep(2)
-    machine.reset()
+    loop = asyncio.get_event_loop()
+    loop.create_task(reboot_ms(1000))
 
 
 @app.route("/config/remove_ssid")
@@ -171,8 +172,8 @@ def config_add_ssid(req, resp):
     yield from picoweb.start_response(resp)
     d = qs_parse(req.qs)
     wifimgr.delete_profile_item(d['ssid'])
-    time.sleep(2)
-    machine.reset()
+    loop = asyncio.get_event_loop()
+    loop.create_task(reboot_ms(1000))
 
 
 @app.route("/status/updateserver")
