@@ -171,13 +171,20 @@ async def queue(server_ip, server_port, queue_name, path):
             print("Failed to retrieve commands: {}".format(e))
             pass
         if routine is not None:
+            if 'time' in routine:
+                while time.time_ns() < routine['time'] - 9000000:
+                    time.sleep_ms(1)
+            print(time.time_ns())
             run_command(routine['command'])
             if "id" in routine:
                 if routine['id'] == -1:
                     break
-            if "sleepms" in routine['command']:
-                time.sleep_ms(routine['command']['sleepms'])
-            data = ujson.dumps({'ip': IPADDRESS, 'queue': queue_name, 'id': routine['id']})
+            if 'time' not in routine:
+                if "sleepms" in routine['command']:
+                    time.sleep_ms(routine['command']['sleepms'])
+                data = ujson.dumps({'ip': IPADDRESS, 'queue': queue_name, 'id': routine['id']})
+            else:
+                data = ujson.dumps({'ip': IPADDRESS, 'queue': queue_name, 'id': routine['id'], 'time': routine['time']})
             routine = None
             gc.collect()
 
