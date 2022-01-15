@@ -174,8 +174,9 @@ async def queue(server_ip, server_port, queue_name, path):
             if 'time' in routine:
                 while time.time_ns() < routine['time'] - 9000000:
                     time.sleep_ms(1)
-            print(time.time_ns())
-            run_command(routine['command'])
+            # print(time.time_ns())
+            if time.time_ns() < routine['time']:
+                run_command(routine['command'])
             if "id" in routine:
                 if routine['id'] == -1:
                     break

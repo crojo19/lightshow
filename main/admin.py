@@ -1,3 +1,5 @@
+import gc
+
 from . import picoweb
 import urequests
 import ubinascii
@@ -67,6 +69,7 @@ def checkforupdate(req, resp):
 @app.route("/updatesoftware")
 def updatesoftware(req, resp):
     yield from picoweb.start_response(resp)
+    gc.collect()
     o = OTAUpdater(configure.read_config_file("update_repo"), github_auth_token=configure.read_config_file('update_repo_token'))
     update_available, current_version, latest_version = o.check_for_update()
     if update_available:
