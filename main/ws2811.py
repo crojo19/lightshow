@@ -165,8 +165,6 @@ class ws2811:
             self.same(int(r), int(g), int(b))
             last_update = last_update + time_per_change
 
-
-
     # used for rainbow cycle
     def wheel(self, pos):
         # Input a value 0 to 255 to get a color value.
