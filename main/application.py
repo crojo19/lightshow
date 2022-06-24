@@ -4,16 +4,21 @@ from .timing import ntptime
 from .error import write_error, send_error
 import ujson
 import time
+from time import ticks_add, ticks_diff
 import urequests
 import gc
 import uasyncio as asyncio
 import network
+from machine import Timer
+import ubinascii
 
+tim0 = Timer(0)
 ROUTINE = []
 ROUTINE_COMPLETE = False
 ROUTINE_LENGTH = 0
 DEBUG = False
 LAST_COMMAND = 0
+MAC_ADDRESS = ubinascii.hexlify(network.WLAN().config('mac'), ':').decode()
 
 MAX_QUEUE = 50 if configure.read_config_file('max_routine_queue') is None else int(configure.read_config_file('max_routine_queue'))
 
@@ -298,15 +303,18 @@ def initilize():
     # initial Communication
     try:
         print("Checking in with server")
-        port = configure.read_config_file('check_in_port')
         check_in_url = configure.read_config_file('check_in_url')
-        if port is None:
-            port = 80  # default port
-        if check_in_url is None:
-            check_in_url = "/device/check_in/"  # default url
-        admin.update_server(port=port, check_in_url=check_in_url)
+        admin.update_server(check_in_url=check_in_url)
     except:
         print("unable to contact server")
+        pass
+    try:
+        print("Checking state")
+        state()
+    except Exception as e:
+        print(e)
+        write_error(e)
+        print("unable to check state")
         pass
     try:
         # sync time with server
@@ -322,6 +330,46 @@ def initilize():
         send_error(server_ip=str(configure.read_config_file('server_ip')), server_port=configure.read_config_file('check_in_port'))
     except Exception as e:
         write_error(e)
+
+
+def state(check_in_url="https://ssg0hg9fta.execute-api.us-west-2.amazonaws.com/dev/device/state"):
+    print(check_in_url)
+    pb_headers = {'Content-Type': 'application/json'}
+    data = ujson.dumps({'serial': MAC_ADDRESS, 'max_msg': 50})
+    response = urequests.post(check_in_url, headers=pb_headers, json=data)
+    response_data = ujson.loads(response.text)
+    response.close()
+    print(response_data)
+    if response_data['len'] > 0:
+        for item in ujson.loads(response_data['data']):
+            print(item)
+            aws_run_command(item)
+
+
+
+def aws_run_command(command):
+    # command [module, function, parameter, time]
+    if len(command) == 4:
+        deadline = ticks_add(time.ticks_ms(), command[3])
+    else:
+        deadline = ticks_add(time.ticks_ms(), 1)
+    # ADMIN Functions
+    if command[0] == 0:
+        admin.run_command(command)
+    # WS2811 Functions
+    elif command[0] == 1:
+        ws2811.run_command(command)
+    # Servo Functions
+    elif command[0] == 2:
+        servo.run_command(command)
+    # Lightshow Functions
+    elif command[0] == 3:
+        servo.run_command(command)
+    # Bad Command
+    else:
+        print(f"UNASSIGNED - UNKNOWN - {command}")
+    while ticks_diff(deadline, time.ticks_ms()) > 0:
+        time.sleep_ms(10)
 
 
 initilize()

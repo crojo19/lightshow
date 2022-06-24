@@ -27,6 +27,8 @@ def boot():
     wlan = wifimgr.get_connection(configure.read_config_file("setup_wifi_prefix"), configure.read_config_file("setup_wifi_password"), configure.read_config_file("name"))
     while wlan is None:
         print("WLAN not yet connected")
+        import machine
+        machine.reset()
     print("ESP Connected to Network - " + str(wlan.ifconfig()[0]))
 
     update_software()

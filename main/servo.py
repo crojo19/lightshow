@@ -94,5 +94,14 @@ def move(req, resp):
     servo.down(**qs_parse(req.qs))
 
 
+def run_command(command):
+    if command[1] == 0:
+        print("SERVO - UP")
+    elif command[1] == 1:
+        print(f"SERVO - DOWN")
+    else:
+        print("SERVO - UNKNOWN")
+
+
 if __name__ == "__main__":
     app.run(debug=True)

@@ -18,39 +18,40 @@ site = picoweb.WebApp(__name__)
 
 
 def get_connection(ssid_prefix, password, device_name):
+    if wlan_sta.isconnected():
+        print("Wifi connected")
+        return wlan_sta
+    wlan_ap.active(False)
+    wlan_sta.active(True)
     gc.collect()
     """return a working WLAN(STA_IF) instance or None"""
-    global ap_ssid
-    if password is None:
-        password = "password"
-    if ssid_prefix is None:
-        ssid_prefix = "CC_"
-    global ap_device_name
-    if device_name is None:
-        ap_device_name = ""
-    else:
-        ap_device_name = "_" + str(device_name)
-    ap_ssid = ssid_prefix + ubinascii.hexlify(network.WLAN().config('mac'), ':').decode() + ap_device_name
-    global ap_password
-    ap_password = password
     # First check if there already is any connection:
+    time.sleep(3)
+    print("checking if Wifi connected")
     if wlan_sta.isconnected():
+        print("Wifi connected")
         return wlan_sta
-
+    print("Wifi NOT connected")
     connected = False
     try:
         # ESP connecting to WiFi takes time, wait a bit and try again:
         time.sleep(3)
+        print("checking if Wifi connected")
         if wlan_sta.isconnected():
+            print("Wifi connected")
             return wlan_sta
+        print("Wifi NOT connected")
 
         # Read known network profiles from file
+        print("reading profiles")
         profiles = read_profiles()
-
+        print(profiles)
         # Search WiFis in range
-        wlan_sta.active(True)
+        # wlan_sta.active(True)
+        print("Scan for networks")
         networks = wlan_sta.scan()
-
+        print(networks)
+        print("Loop through found network")
         AUTHMODE = {0: "open", 1: "WEP", 2: "WPA-PSK", 3: "WPA2-PSK", 4: "WPA/WPA2-PSK"}
         for ssid, bssid, channel, rssi, authmode, hidden in sorted(networks, key=lambda x: x[3], reverse=True):
             ssid = ssid.decode('utf-8')
@@ -63,27 +64,80 @@ def get_connection(ssid_prefix, password, device_name):
                 else:
                     print("skipping unknown encrypted network")
             else:
+                print("Skipping open networks")
                 pass  # don't connect to OPEN networks
-            if connected:
+            if wlan_sta.isconnected():
                 return wlan_sta
     except OSError as e:
         print("exception", str(e))
+    except Exception as e:
+        print("exception", str(e))
     # start web server for connection manager:
     if not connected:
+        global ap_ssid
+        if password is None:
+            password = "password"
+        if ssid_prefix is None:
+            ssid_prefix = "CC_"
+        global ap_device_name
+        if device_name is None:
+            ap_device_name = ""
+        else:
+            ap_device_name = "_" + str(device_name)
+        ap_ssid = ssid_prefix + ubinascii.hexlify(network.WLAN().config('mac'), ':').decode() + ap_device_name
+        global ap_password
+        ap_password = password
         wlan_sta.active(True)
         wlan_ap.active(True)
         wlan_ap.config(essid=ap_ssid, password=ap_password, authmode=ap_authmode)
+        site = picoweb.WebApp(__name__)
+
+        @site.route("/")
+        def wifi_config(req, resp):
+            yield from picoweb.start_response(resp, content_type="application/json")
+            data = {}
+            received_data = True
+            d = qs_parse(req.qs)
+            if d.get('ssid') is None:
+                received_data = False
+                yield from resp.awrite(ujson.dumps({'expected_keys': ['ssid', 'password']}))
+            if d.get('password') is None:
+                received_data = False
+                yield from resp.awrite(ujson.dumps({'expected_keys': ['ssid', 'password']}))
+            data.update({'received data': 'yes'})
+            if received_data:
+                if do_connect(d['ssid'], d['password']):
+                    add_profile_item(d['ssid'], d['password'])
+                    yield from resp.awrite(ujson.dumps({'connection_status': 'successful'}))
+                    wlan_ap.active(False)
+                    time.sleep_ms(1500)
+                    import machine
+                    machine.reset()
+                yield from resp.awrite(ujson.dumps({'connection_status': 'Unable to connect'}))
+
+        @site.route("/reboot")
+        def reboot(req, resp):
+            yield from picoweb.start_response(resp, content_type="application/json")
+            yield from resp.awrite(ujson.dumps({'reboot': 'yes'}))
+            wlan_ap.active(False)
+            time.sleep_ms(1500)
+            import machine
+            machine.reset()
+
         site.run(host='0.0.0.0', debug=False, port=80)
 
 
-def read_profiles():
+def read_profiles(show_password=True):
     try:
         with open(NETWORK_PROFILES) as f:
             lines = f.readlines()
         profiles = {}
         for line in lines:
             ssid, password = line.strip("\n").split(";")
-            profiles[ssid] = "password"
+            if show_password:
+                profiles[ssid] = password
+            else:
+                profiles[ssid] = "*"
         return profiles
     except:
         return {}
@@ -116,8 +170,8 @@ def delete_profile_item(ssid):
 
 
 def do_connect(ssid, password):
-    wlan_sta.active(True)
-    wlan_sta.disconnect()
+    if not wlan_sta.active():
+        wlan_sta.active(True)
     if wlan_sta.isconnected():
         return True
     print('Trying to connect to %s...' % ssid)
@@ -135,38 +189,7 @@ def do_connect(ssid, password):
     return connected
 
 
-@site.route("/")
-def wifi_config(req, resp):
-    yield from picoweb.start_response(resp, content_type="application/json")
-    data = {}
-    received_data = True
-    d = qs_parse(req.qs)
-    if d.get('ssid') is None:
-        received_data = False
-        yield from resp.awrite(ujson.dumps({'expected_keys': ['ssid', 'password']}))
-    if d.get('password') is None:
-        received_data = False
-        yield from resp.awrite(ujson.dumps({'expected_keys': ['ssid', 'password']}))
-    data.update({'received data': 'yes'})
-    if received_data:
-        if do_connect(d['ssid'], d['password']):
-            add_profile_item(d['ssid'], d['password'])
-            yield from resp.awrite(ujson.dumps({'connection_status': 'successful'}))
-            wlan_ap.active(False)
-            time.sleep_ms(1500)
-            import machine
-            machine.reset()
-        yield from resp.awrite(ujson.dumps({'connection_status': 'Unable to connect'}))
-        
-        
-@site.route("/reboot")
-def reboot(req, resp):
-    yield from picoweb.start_response(resp, content_type="application/json")
-    yield from resp.awrite(ujson.dumps({'reboot': 'yes'}))
-    wlan_ap.active(False)
-    time.sleep_ms(1500)
-    import machine
-    machine.reset()
+
 
 
 def try_int(val):

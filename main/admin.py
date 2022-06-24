@@ -1,5 +1,5 @@
 import gc
-
+from machine import Timer
 from . import picoweb
 import urequests
 import ubinascii
@@ -184,7 +184,7 @@ def status_updateserver(req, resp):
     yield from picoweb.start_response(resp)
     config = configure.read_config_file()
     try:
-        update_server(port=config["check_in_port"], check_in_url=config["check_in_url"])
+        update_server(check_in_url=config["check_in_url"])
     except:
         print("check_in_port or check_in_url not in config file using defaults")
         update_server()
@@ -202,16 +202,12 @@ def send_error(port=80, error_url="/error"):
     response.close()
 
 
-def update_server(port=80, check_in_url="/device/check_in/"):
-    # perform post to server IP @ port in config with configuration data
-    url = "http://" + str(configure.read_config_file('server_ip')) + ":" + str(port) + check_in_url +\
-          str(configure.read_config_file('name'))
-    print(url)
-    pb_headers = {
-        'Content-Type': 'application/json'
-    }
+def update_server(check_in_url="http://nas:9090/device/check_in"):
+    print(check_in_url)
+    pb_headers = {'Content-Type': 'application/json'}
     data = config()
-    response = urequests.post(url, headers=pb_headers, json=data)
+    response = urequests.post(check_in_url, headers=pb_headers, json=data)
+    print(response.text)
     response.close()
 
 
@@ -229,7 +225,7 @@ def config():
     data['network'].update({'mac_address': ubinascii.hexlify(network.WLAN().config('mac'), ':').decode()})
     (ip, other, other1, other2) = network.WLAN().ifconfig()
     data['network'].update({'ip_address': ip})
-    wifi = wifimgr.read_profiles()
+    wifi = wifimgr.read_profiles(show_password=False)
     data['network'].update({'wifi': wifi})
 
     data['software'] = {}
@@ -261,6 +257,40 @@ def config():
     data.update({'config_version': "0.2"})
     return ujson.dumps(data)
 
+
+def run_command(command):
+    if command[1] == 0:
+        print("ADMIN - REBOOT")
+        machine.reset()
+    elif command[1] == 1:
+        print("ADMIN - ADD WIFI")
+        wifimgr.add_profile_item(**command[2])
+    elif command[1] == 2:
+        print("ADMIN - REMOVE WIFI")
+        wifimgr.delete_profile_item(**command[2])
+    elif command[1] == 3:
+        print("ADMIN - DISCONNECT & REBOOT")
+        network.WLAN().disconnect()
+        machine.reset()
+    elif command[1] == 4:
+        print("ADMIN - UPDATE SOFTWARE")
+    elif command[1] == 5:
+        print("ADMIN - GET CONFIG")
+        update_server()
+    elif command[1] == 6:
+        print("ADMIN - UPDATE CONFIG")
+        configure.put_config_items(command[2])
+    elif command[1] == 7:
+        print("ADMIN - POLL INTERVAL")
+        tim0 = Timer(0)
+        from .application import tim0_callback
+        tim0.init(period=command[2]['interval'], mode=Timer.PERIODIC, callback=tim0_callback)
+    elif command[1] == 10:
+        print("ADMIN - POLL DEINIT")
+        tim0 = Timer(0)
+        tim0.deinit()
+    else:
+        print(f"ADMIN - UNKNOWN - {command[2]}")
 
 if __name__ == "__main__":
     app.run(debug=True)
