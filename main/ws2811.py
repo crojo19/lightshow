@@ -270,7 +270,7 @@ def index(req, resp):
 def color_rgb(req, resp):
     yield from picoweb.start_response(resp)
     qs = qs_parse(req.qs())
-    lights.rgb(rgb=(int(qs['red']), int(qs['green']), int(qs['blue']))
+    lights.rgb(rgb=(int(qs['red']), int(qs['green']), int(qs['blue'])))
 
 
 @app.route("/color/off", parameters="None", description="all lights off")
