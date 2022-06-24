@@ -203,9 +203,10 @@ def send_error(port=80, error_url="/error"):
 
 
 def update_server(check_in_url="http://nas:9090/device/check_in"):
-    print(check_in_url)
     pb_headers = {'Content-Type': 'application/json'}
     data = config()
+    check_in_url = check_in_url + "/" + data['name']
+    print(check_in_url)
     response = urequests.post(check_in_url, headers=pb_headers, json=data)
     print(response.text)
     response.close()
