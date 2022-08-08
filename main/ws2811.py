@@ -32,20 +32,20 @@ class ws2811:
     def rgb(self, rgb=(0, 0, 0)):
         self.same(rgb=rgb)
 
-    def red(self, brightness=55):
-        self.same(rgb=(brightness, 0, 0))
+    def red(self, brt=55):
+        self.same(rgb=(brt, 0, 0))
 
-    def green(self, brightness=55):
-        self.same(rgb=(0, brightness, 0))
+    def green(self, brt=55):
+        self.same(rgb=(0, brt, 0))
 
-    def blue(self, brightness=55):
-        self.same(rgb=(0, 0, brightness))
+    def blue(self, brt=55):
+        self.same(rgb=(0, 0, brt))
 
     def off(self):
         self.same(rgb=(0, 0, 0))
 
-    def white(self, brightness=55):
-        self.same(rgb=(brightness, brightness, brightness))
+    def white(self, brt=55):
+        self.same(rgb=(brt, brt, brt))
 
     def flash(self, red=0, green=0, blue=0, timems=60, count=10):
         # to be deprecated
@@ -142,6 +142,7 @@ class ws2811:
         self.off()
 
     def fade(self, p1=(0, 0, 0), p2=(0, 0, 0),  steps=10, ttms=1000):
+        steps = round(ttms/50)
         start_time = time.time_ns()
         time_per_change = int(ttms*ms/steps)
         end_time = start_time + (ttms * ms)
