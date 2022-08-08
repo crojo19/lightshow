@@ -16,7 +16,7 @@ tim0 = Timer(0)
 ROUTINE = []
 ROUTINE_COMPLETE = False
 ROUTINE_LENGTH = 0
-DEBUG = True
+DEBUG = False
 LAST_COMMAND = 0
 MAC_ADDRESS = ubinascii.hexlify(network.WLAN().config('mac'), ':').decode()
 
@@ -124,8 +124,10 @@ async def lightshow(start_time):
             while ROUTINE_LENGTH > 0:
                 item = ROUTINE.pop(0)
                 ROUTINE_LENGTH = len(ROUTINE)
-                command = item[1]
                 command_time = int(item[0])
+                module = item[1]
+                function = item[2]
+                parameters = item[3]
                 # wait till 9ms before command expected
                 while time.time_ns() < command_time - 9000000:
                     # 200 ms then request to server
@@ -135,12 +137,12 @@ async def lightshow(start_time):
                 ms_delta = (time.time_ns() - command_time) / 1000000
                 if DEBUG: print(
                     "Delta ms: " + str(ms_delta) + " : time:" + str(time.time_ns()) + " : expectedTime:" + str(
-                        command_time) + " : Command: " + str(command))
+                        command_time) + " : Command: " + str(function))
                 # if delta is less than 75 ms run command
                 if ms_delta < 75:
-                    run_command(command)
+                    run_command(module, function, parameters)
                 else:
-                    print(">75ms delay:{} {} ".format(str(command_time), command))
+                    print(">75ms delay:{} {} ".format(str(command_time), function))
                 if len(ROUTINE) == 0:
                     if DEBUG: print("awaiting more commands with none in queue")
                     await asyncio.sleep_ms(50)
@@ -239,15 +241,15 @@ def end_show():
         pass
 
 
-def run_command(command):
+def run_command(module, function, parameters):
     try:
-        if command['command_type'] == "lights":
-            getattr(lights, command['function'])(**command['parameters'])
-        elif command['command_type'] == "servo":
-            getattr(servo, command['function'])(**command['parameters'])
+        if module == "lights":
+            getattr(lights, function)(**parameters)
+        elif module == "servo":
+            getattr(servo, function)(**parameters)
     except Exception as e:
         print(str(e))
-        print("ERROR - Command Failed to run: " + str(command))
+        print("ERROR - Command Failed to run: " + str(function))
         pass
 
 
@@ -284,8 +286,7 @@ async def instructions(server_ip, server_port, path):
                 if i > 0:
                     asyncio.sleep_ms(i * 100)
                 if DEBUG: print("getting response")
-                routine_json = response.json()
-                routine = sorted(routine_json.items())
+                routine = response.json()
                 if DEBUG: print(f"Routine Length = {str(len(routine))}")
             except Exception as e:
                 print("Failed to retrieve commands: {}".format(e))
