@@ -130,6 +130,7 @@ async def lightshow(start_time):
                 while time.time_ns() < command_time - 9000000:
                     # 200 ms then request to server
                     if time.time_ns() < command_time - 200000000:
+                        if DEBUG: print("awaiting more commands 200ms before next request")
                         await asyncio.sleep_ms(0)
                 ms_delta = (time.time_ns() - command_time) / 1000000
                 if DEBUG: print(
@@ -141,10 +142,15 @@ async def lightshow(start_time):
                 else:
                     print(">75ms delay:{} {} ".format(str(command_time), command))
                 if len(ROUTINE) == 0:
-                    await asyncio.sleep_ms(0)
+                    if DEBUG: print("awaiting more commands with none in queue")
+                    await asyncio.sleep_ms(50)
+            if DEBUG:
+                print(f"main while true loop")
             if ROUTINE_COMPLETE:
                 print("Routine Complete")
                 break
+            else:
+                await asyncio.sleep_ms(50)
     end_show()
 
 
@@ -254,21 +260,27 @@ async def instructions(server_ip, server_port, path):
     url = "http://" + server_ip + ":" + str(server_port) + path
     pb_headers = {'Content-Type': 'application/json'}
     while not ROUTINE_COMPLETE:
+        if DEBUG: print(f"instructions: top of loop")
         while ROUTINE_LENGTH >= MAX_QUEUE - 1:
+            if DEBUG: print(f"instructions: await queue is max length")
             await asyncio.sleep_ms(0)
         number_of_commands = MAX_QUEUE - ROUTINE_LENGTH
         data = ujson.dumps({'ip': IPADDRESS, 'limit': number_of_commands, 'last_command': str(LAST_COMMAND)})
         retry_max = 5
         i = 0
         gc.collect()
+        if DEBUG: print(f"number of requested commands {str(number_of_commands)}")
         while len(routine) == 0:
+            gc.collect()
             try:
+                if DEBUG: print("Making Request for more commands")
                 response = urequests.post(url, headers=pb_headers, json=data)
                 if i > 0:
                     asyncio.sleep_ms(i * 100)
+                if DEBUG: print("getting response")
                 routine_json = response.json()
-                response.close()
-                routine = list(sorted(routine_json.items()))
+                routine = sorted(routine_json.items())
+                if DEBUG: print(f"Routine Length = {str(len(routine))}")
             except Exception as e:
                 print("Failed to retrieve commands: {}".format(e))
                 pass
@@ -277,14 +289,17 @@ async def instructions(server_ip, server_port, path):
                 ROUTINE_COMPLETE = True
                 break
             i = i + 1
+        if DEBUG: print(f"in loop")
         if len(routine) == 1:
             if routine[0][0] is 'end':
                 ROUTINE_COMPLETE = True
         if ROUTINE_COMPLETE:
             print("Last Command Received")
-            await asyncio.sleep_ms(0)
+            response.close()
+            return
         else:
             if len(routine) > 0:
+                if DEBUG: print(f"extend routine")
                 LAST_COMMAND = int(routine[-1][0])
                 ROUTINE.extend(routine)
                 routine = []
