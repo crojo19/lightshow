@@ -16,7 +16,7 @@ tim0 = Timer(0)
 ROUTINE = []
 ROUTINE_COMPLETE = False
 ROUTINE_LENGTH = 0
-DEBUG = False
+DEBUG = True
 LAST_COMMAND = 0
 MAC_ADDRESS = ubinascii.hexlify(network.WLAN().config('mac'), ':').decode()
 
@@ -257,7 +257,13 @@ async def instructions(server_ip, server_port, path):
     global LAST_COMMAND
     global ROUTINE_LENGTH
     routine = []
-    url = "http://" + server_ip + ":" + str(server_port) + path
+    url = ""
+    if int(server_port) == 80:
+        url = "http://" + server_ip + path
+    else:
+        url = "http://" + server_ip + ":" + str(server_port) + path
+
+    if DEBUG: print(f"{url}")
     pb_headers = {'Content-Type': 'application/json'}
     while not ROUTINE_COMPLETE:
         if DEBUG: print(f"instructions: top of loop")
