@@ -7,9 +7,18 @@ ms = 1000000
 class ws2811:
 
 
-    def __init__(self, light_count, pin=5, order="GRB"):
+    def __init__(self, light_count, pin=5, order="GRB", timing=1):
         self.PIXEL_COUNT = light_count
-        self.np = neopixel.NeoPixel(machine.Pin(pin), self.PIXEL_COUNT)
+        if timing is 1:
+            self.np = neopixel.NeoPixel(machine.Pin(pin), self.PIXEL_COUNT, timing=1)
+        elif timing is 0:
+            self.np = neopixel.NeoPixel(machine.Pin(pin), self.PIXEL_COUNT, timing=0)
+        elif timing is 2:
+            self.np = neopixel.NeoPixel(machine.Pin(pin), self.PIXEL_COUNT, timing=(350, 700, 800, 600))
+        else:
+            self.np = neopixel.NeoPixel(machine.Pin(pin), self.PIXEL_COUNT)
+
+        # self.np = neopixel.NeoPixel(machine.Pin(pin), self.PIXEL_COUNT, timing=(350, 700, 800, 600))
         if order == "RGB":
             self.np.ORDER = (1, 0, 2, 3)
         elif order == "RBG":
@@ -239,7 +248,16 @@ app = picoweb.WebApp(__name__)
 order = "RGB"
 if configure.read_config_file("ws2811_color_order") is not None:
     order = configure.read_config_file("ws2811_color_order")
-lights = ws2811(int(configure.read_config_file("count")), order=order)
+if configure.read_config_file("type") is not None:
+    type = configure.read_config_file("type")
+    if type == "WS2812":
+        lights = ws2811(int(configure.read_config_file("count")), order=order, timing=2)
+    elif type == "WS2812B":
+        lights = ws2811(int(configure.read_config_file("count")), order=order, timing=1)
+    else:
+        lights = ws2811(int(configure.read_config_file("count")), order=order)
+else:
+    lights = ws2811(int(configure.read_config_file("count")), order=order)
 
 def try_int(val):
     try:
