@@ -189,7 +189,7 @@ async def queue(server_ip, server_port, queue_name, path):
                     time.sleep_ms(1)
             # print(time.time_ns())
             if time.time_ns() < routine['time']:
-                run_command(routine['command'])
+                run_command(routine['command']['command_type'], routine['command']['function'], routine['command']['parameters'])
             if "id" in routine:
                 if routine['id'] == -1:
                     break
@@ -393,7 +393,9 @@ def aws_run_command(command):
     while ticks_diff(deadline, time.ticks_ms()) > 0:
         time.sleep_ms(10)
 
-
+print("initilizing application")
 initilize()
+print("initilizing active routine check")
 active_routine_check()
+print("initilizing website")
 site.run(host='0.0.0.0', debug=False, port=80)
