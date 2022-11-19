@@ -150,6 +150,57 @@ class ws2811:
             True
         self.off()
 
+    def runner_r(self, p0=(200, 0, 0), p1=(100, 100, 100), count=9, ttms=200, dir=0):
+        """Wipe small number of pixels across over the total time alocated
+        p0 is the first light and p1 are the rest of the lights this was for santas sleigh"""
+        pixel_count = self.PIXEL_COUNT
+        start_time = time.time_ns()
+        time_per_change = int(ttms / pixel_count)*ms
+        end_time = start_time + (ttms * ms)
+        last_update = start_time - time_per_change
+        if count > pixel_count:
+            count = pixel_count
+        if dir == 0:
+            for i in range(count):
+                if i == count - 1:
+                    self.np[i] = p0
+                else:
+                    self.np[i] = p1
+            self.np.write()
+            last_update = last_update + time_per_change
+            for i in range(pixel_count-count):
+                self.np[i] = self.np[i+count]
+                self.np[i + count - 1] = p1
+                self.np[i + count] = p0
+                while time.time_ns() < last_update + time_per_change:
+                    pass
+                self.np.write()
+                last_update = last_update + time_per_change
+                if time.time_ns() > end_time:
+                    self.off()
+                    return
+        elif dir == 1:
+            for i in range(count):
+                self.np[pixel_count-1-i] = p1
+            self.np[pixel_count - 0 - count] = p0
+            self.np.write()
+            last_update = last_update + time_per_change
+            for i in range(pixel_count-count):
+                self.np[pixel_count-1-i] = self.np[pixel_count-1-count-i]
+                self.np[pixel_count - 1 - count - i] = p0
+                self.np[pixel_count - 0 - count - i] = p1
+                while time.time_ns() < last_update + time_per_change:
+                    pass
+                self.np.write()
+                last_update = last_update + time_per_change
+                if time.time_ns() > end_time:
+                    self.off()
+                    return
+        while time.time_ns() < end_time:
+            True
+        self.off()
+
+
     def fade(self, p1=(0, 0, 0), p2=(0, 0, 0),  steps=10, ttms=1000):
         steps = round(ttms/50)
         start_time = time.time_ns()
@@ -341,6 +392,12 @@ def routine_alternate(req, resp):
 def routine_runner(req, resp):
     yield from picoweb.start_response(resp)
     lights.runner(**qs_parse(req.qs))
+
+@app.route("/routine/runner_r", parameters="red, green, blue, ttms, dir", description="run small # of lights accross led strand in a direction")
+def routine_runner(req, resp):
+    yield from picoweb.start_response(resp)
+    qs = qs_parse(req.qs)
+    lights.runner_r(ttms=int(qs['ttms']), dir=int(qs['dir']))
 
 
 def run_command(command):
