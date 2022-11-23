@@ -58,7 +58,7 @@ def time_raw():
     # print("offset: " + str(int(offset/1000)) + " microseconds")
     # print("delay: " + str(int(delay/1000)) + " microseconds")
     microseconds = int(t3_microseconds + delay/1000)
-    tm = utime.gmtime(struct.unpack("!I", msg[40:44])[0]- NTP_DELTA)
+    tm = utime.gmtime(struct.unpack("!I", msg[40:44])[0] - NTP_DELTA)
     # print(machine.RTC().datetime())
     machine.RTC().datetime((tm[0], tm[1], tm[2], tm[6] + 1, tm[3], tm[4], tm[5], microseconds))
     # print(machine.RTC().datetime())
