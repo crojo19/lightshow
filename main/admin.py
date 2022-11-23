@@ -293,5 +293,12 @@ def run_command(command):
     else:
         print(f"ADMIN - UNKNOWN - {command[2]}")
 
+try:
+    machine.freq(240000000)
+    print("Info: CPU freq 240Mhz")
+except Exception:
+    print("Error: Unable to set cpu freq 240Mhz")
+    pass
+
 if __name__ == "__main__":
     app.run(debug=True)
