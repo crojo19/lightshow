@@ -113,7 +113,7 @@ async def lightshow(start_time):
 
     set_time()
     while ROUTINE_LENGTH == 0:
-        await asyncio.sleep_ms(0)
+        await asyncio.sleep_ms(100)
     if ROUTINE_LENGTH > 0:
         print("################")
         print("local_time: " + str(time.time_ns()))
@@ -302,7 +302,11 @@ async def instructions(server_ip, server_port, path):
                 ROUTINE_COMPLETE = True
         if ROUTINE_COMPLETE:
             print("Last Command Received")
-            response.close()
+            try:
+                response.close()
+            except Exception:
+                print("response close failed")
+                pass
             return
         else:
             if len(routine) > 0:
