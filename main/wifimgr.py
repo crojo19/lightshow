@@ -18,10 +18,11 @@ site = picoweb.WebApp(__name__)
 
 
 def get_connection(ssid_prefix, password, device_name):
-    if wlan_sta.isconnected():
-        print("Wifi connected")
-        return wlan_sta
+    # if wlan_sta.isconnected():
+    #     print("Wifi connected")
+    #     return wlan_sta
     wlan_ap.active(False)
+    wlan_sta.active(False)
     wlan_sta.active(True)
     gc.collect()
     """return a working WLAN(STA_IF) instance or None"""
