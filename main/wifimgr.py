@@ -4,6 +4,7 @@ import gc
 from . import picoweb
 import ujson
 import time
+import machine
 
 ap_ssid = None
 ap_password = None
@@ -18,9 +19,12 @@ site = picoweb.WebApp(__name__)
 
 
 def get_connection(ssid_prefix, password, device_name):
-    # if wlan_sta.isconnected():
-    #     print("Wifi connected")
-    #     return wlan_sta
+    try:
+        machine.freq(240000000)
+        print("Info: CPU freq 240Mhz")
+    except Exception:
+        print("Error: Unable to set cpu freq 240Mhz")
+        pass
     wlan_ap.active(False)
     wlan_sta.active(False)
     wlan_sta.active(True)
