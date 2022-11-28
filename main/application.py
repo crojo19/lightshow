@@ -133,7 +133,7 @@ async def lightshow(start_time):
                 while time.time_ns() < command_time - 9000000:
                     # 200 ms then request to server
                     if time.time_ns() < command_time - 200000000:
-                        if DEBUG: print("awaiting more commands 200ms before next request")
+                        # if DEBUG: print("awaiting more commands 200ms before next request")
                         await asyncio.sleep_ms(0)
                 ms_delta = (time.time_ns() - command_time) / 1000000
                 if DEBUG: print(
