@@ -11,6 +11,7 @@ import uasyncio as asyncio
 import network
 from machine import Timer
 import ubinascii
+import machine
 
 tim0 = Timer(0)
 ROUTINE = []
@@ -284,7 +285,7 @@ async def instructions(server_ip, server_port, path):
                 if DEBUG: print("Making Request for more commands")
                 response = urequests.post(url, headers=pb_headers, json=data)
                 if i > 0:
-                    asyncio.sleep_ms(i * 100)
+                    asyncio.sleep_ms(i * 200)
                 if DEBUG: print("getting response")
                 routine = response.json()
                 if DEBUG: print(f"Routine Length = {str(len(routine))}")
@@ -292,7 +293,8 @@ async def instructions(server_ip, server_port, path):
                 print("Failed to retrieve commands: {}".format(e))
                 pass
             if i >= retry_max + 1:
-                print("Max Retry reached")
+                print("Max Retry reached rebooting")
+                machine.reset()
                 ROUTINE_COMPLETE = True
                 break
             i = i + 1
