@@ -344,16 +344,18 @@ def initilize():
         write_error(e)
         print("unable to check state")
         pass
-    try:
-        # sync time with server
-        print("Syncing with time server")
-        ntptime.host = str(configure.read_config_file('server_ip'))
-        ntptime.settime()
-    except Exception as e:
-        print(e)
-        write_error(e)
-        print("unable to update time")
-        pass
+    # try:
+    #     # sync time with server
+    #     set_time()
+    #     set_time()
+    #     set_time()
+    #     set_time()
+    #     set_time()
+    # except Exception as e:
+    #     print(e)
+    #     write_error(e)
+    #     print("unable to update time")
+    #     pass
     try:
         send_error(server_ip=str(configure.read_config_file('server_ip')), server_port=configure.read_config_file('check_in_port'))
     except Exception as e:

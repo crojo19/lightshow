@@ -107,6 +107,7 @@ def config_get(req, resp):
 
 def set_time():
     try:
+        print("Syncing with time server")
         ntptime.host = str(configure.read_config_file('server_ip'))
         ntptime.settime()
     except Exception:
