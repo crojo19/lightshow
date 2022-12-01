@@ -4,9 +4,10 @@ import ujson
 import time
 import network
 
-def write_error(error):
+
+def write_error(error, data=""):
     with open("error.log", "a") as logf:
-        logf.write(str(time.gmtime()) + "-" + str(error))
+        logf.write(str(time.gmtime()) + "-" + str(error) + "-" + data)
 
 
 def send_error(server_ip=None, server_port=80):

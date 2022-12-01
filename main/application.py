@@ -34,7 +34,7 @@ try:
     modules = configure.read_config_file('modules')
     modules = modules.split(',')
 except Exception as e:
-    write_error(e)
+    write_error(e,data="app.moduleloadfail")
     pass
 
 # always load admin module
@@ -55,7 +55,7 @@ try:
         from.servo import servo
         site.mount("/servo", servo_mod.app)
 except Exception as e:
-    write_error(e)
+    write_error(e, data="app.moduleloadfail2")
     pass
 
 
@@ -229,7 +229,7 @@ def preshow():
         time.sleep_ms(50)
         lights.rgb(0, 0, 0)
     except Exception as e:
-        write_error(e)
+        write_error(e, "app.preshow")
         pass
     return
 
@@ -238,7 +238,7 @@ def end_show():
     try:
         lights.rgb(25, 25, 25)
     except Exception as es:
-        write_error(es)
+        write_error(es, data="app.endshow")
         pass
 
 
@@ -249,7 +249,7 @@ def run_command(module, function, parameters):
         elif module == "servo":
             getattr(servo, function)(**parameters)
     except Exception as e:
-        print(str(e))
+        write_error(e, data=f"app.run_command {module}.{function}.{parameters}")
         print("ERROR - Command Failed to run: " + str(function))
         pass
 
@@ -341,7 +341,7 @@ def initilize():
         state()
     except Exception as e:
         print(e)
-        write_error(e)
+        write_error(e,data="app.initilize.awsstatecheck")
         print("unable to check state")
         pass
     # try:
@@ -359,7 +359,7 @@ def initilize():
     try:
         send_error(server_ip=str(configure.read_config_file('server_ip')), server_port=configure.read_config_file('check_in_port'))
     except Exception as e:
-        write_error(e)
+        write_error(e, data="app.initilize.checkin")
 
 
 def state(check_in_url="https://ssg0hg9fta.execute-api.us-west-2.amazonaws.com/dev/device/state"):
