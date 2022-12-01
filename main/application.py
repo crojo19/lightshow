@@ -221,13 +221,13 @@ def qs_parse(qs):
 
 def preshow():
     try:
-        lights.rgb(55, 0, 0)
+        lights.rgb((55, 0, 0))
         time.sleep_ms(50)
-        lights.rgb(0, 55, 0)
+        lights.rgb((0, 55, 0))
         time.sleep_ms(50)
-        lights.rgb(0, 0, 55)
+        lights.rgb((0, 0, 55))
         time.sleep_ms(50)
-        lights.rgb(0, 0, 0)
+        lights.rgb((0, 0, 0))
     except Exception as e:
         write_error(e, "app.preshow")
         pass
@@ -236,7 +236,8 @@ def preshow():
 
 def end_show():
     try:
-        lights.rgb(25, 25, 25)
+        lights.rgb((25,25,25))
+        # lights.rgb(25, 25, 25)
     except Exception as es:
         write_error(es, data="app.endshow")
         pass
