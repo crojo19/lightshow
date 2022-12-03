@@ -236,7 +236,8 @@ def preshow():
 
 def end_show():
     try:
-        lights.rgb((25,25,25))
+        pass
+        # lights.rgb((25,25,25))
         # lights.rgb(25, 25, 25)
     except Exception as es:
         write_error(es, data="app.endshow")
