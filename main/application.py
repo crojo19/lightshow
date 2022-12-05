@@ -352,6 +352,7 @@ def initilize():
         print("unable to check state")
         pass
     try:
+        print("Sending Errors to server")
         send_error(server_ip=str(configure.read_config_file('server_ip')), server_port=configure.read_config_file('check_in_port'))
     except Exception as e:
         write_error(e, data="app.initilize.checkin")
