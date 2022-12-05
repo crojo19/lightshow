@@ -189,11 +189,14 @@ async def queue(server_ip, server_port, queue_name, path):
                 while time.time_ns() < routine['time'] - 9000000:
                     time.sleep_ms(1)
             # print(time.time_ns())
-            if time.time_ns() < routine['time']:
-                run_command(routine['command']['command_type'], routine['command']['function'], routine['command']['parameters'])
             if "id" in routine:
                 if routine['id'] == -1:
+                    run_command(routine['command']['command_type'], routine['command']['function'],
+                                routine['command']['parameters'])
                     break
+            if time.time_ns() < routine['time']:
+                run_command(routine['command']['command_type'], routine['command']['function'], routine['command']['parameters'])
+
             if 'time' not in routine:
                 if "sleepms" in routine['command']:
                     time.sleep_ms(routine['command']['sleepms'])
@@ -290,6 +293,8 @@ async def instructions(server_ip, server_port, path):
                     asyncio.sleep_ms(i * 200)
                 if DEBUG: print("getting response")
                 routine = response.json()
+                response.close()
+                gc.collect()
                 if DEBUG: print(f"Routine Length = {str(len(routine))}")
             except Exception as e:
                 print("Failed to retrieve commands: {}".format(e))
