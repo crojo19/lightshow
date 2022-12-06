@@ -245,7 +245,7 @@ class ws2811:
                 self.np.write()
                 last_update = last_update + time_per_change
                 if time.time_ns() > end_time:
-                    self.off()
+                    self.rgb(p2)
                     return
         self.rgb(p2)
 
