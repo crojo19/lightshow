@@ -1,7 +1,6 @@
 from . import picoweb
 from . import configure
-from .timing import ntptime
-from .error import write_error, send_error
+from main.error import write_error, send_error
 import ujson
 import time
 from time import ticks_add, ticks_diff
@@ -21,7 +20,8 @@ DEBUG = False
 LAST_COMMAND = 0
 MAC_ADDRESS = ubinascii.hexlify(network.WLAN().config('mac'), ':').decode()
 
-MAX_QUEUE = 50 if configure.read_config_file('max_routine_queue') is None else int(configure.read_config_file('max_routine_queue'))
+MAX_QUEUE = 50 if configure.read_config_file('max_routine_queue') is None else int(
+    configure.read_config_file('max_routine_queue'))
 
 (ip, other, other1, other2) = network.WLAN().ifconfig()
 IPADDRESS = ip
@@ -34,12 +34,13 @@ try:
     modules = configure.read_config_file('modules')
     modules = modules.split(',')
 except Exception as e:
-    write_error(e,data="app.moduleloadfail")
+    write_error(e, data="app.moduleloadfail")
     pass
 
 # always load admin module
 from . import admin
 from .admin import set_time
+
 print("Module admin Loading")
 site.mount("/admin", admin.app)
 
@@ -48,11 +49,13 @@ try:
         print("Module ws2811 Loading")
         from . import ws2811
         from .ws2811 import lights
+
         site.mount("/led", ws2811.app)
     if 'servo' in modules:
         print("Module Servo Loading")
         from . import servo as servo_mod
-        from.servo import servo
+        from .servo import servo
+
         site.mount("/servo", servo_mod.app)
 except Exception as e:
     write_error(e, data="app.moduleloadfail2")
@@ -86,7 +89,8 @@ def config(req, resp):
     yield from resp.awrite(str(admin.config()))
 
 
-@site.route("/run_lightshow", parameters="starttime, server, port", description="Initiate light show function on device")
+@site.route("/run_lightshow", parameters="starttime, server, port",
+            description="Initiate light show function on device")
 def run_lightshow(req, resp):
     yield from picoweb.start_response(resp, content_type="application/json")
     data = {}
@@ -103,8 +107,8 @@ def run_lightshow(req, resp):
     # Wait for server to build lightshow index
     time.sleep_ms(200)
     print(d)
-    loop.create_task(lightshow(d['starttime']))
-    loop.create_task(instructions(d['server'], d['port'], "/lightshow/nextcommand"))
+    # loop.create_task(lightshow(d['starttime']))
+    # loop.create_task(instructions(d['server'], d['port'], "/lightshow/nextcommand"))
 
 
 async def lightshow(start_time):
@@ -134,7 +138,7 @@ async def lightshow(start_time):
                     # 200 ms then request to server
                     if time.time_ns() < command_time - 200000000:
                         # if DEBUG: print("awaiting more commands 200ms before next request")
-                        await asyncio.sleep_ms(0)
+                        await asyncio.sleep_ms(100)
                 ms_delta = (time.time_ns() - command_time) / 1000000
                 if DEBUG: print(
                     "Delta ms: " + str(ms_delta) + " : time:" + str(time.time_ns()) + " : expectedTime:" + str(
@@ -183,19 +187,20 @@ async def queue(server_ip, server_port, queue_name, path):
             response.close()
         except Exception as e:
             print("Failed to retrieve commands: {}".format(e))
+            write_error(e, "queue.failedtoretrievecommands")
             pass
         if routine is not None:
             if 'time' in routine:
                 while time.time_ns() < routine['time'] - 9000000:
-                    time.sleep_ms(1)
-            # print(time.time_ns())
+                    await asyncio.sleep_ms(50)
             if "id" in routine:
                 if routine['id'] == -1:
                     run_command(routine['command']['command_type'], routine['command']['function'],
                                 routine['command']['parameters'])
                     break
             if time.time_ns() < routine['time']:
-                run_command(routine['command']['command_type'], routine['command']['function'], routine['command']['parameters'])
+                run_command(routine['command']['command_type'], routine['command']['function'],
+                            routine['command']['parameters'])
 
             if 'time' not in routine:
                 if "sleepms" in routine['command']:
@@ -298,9 +303,11 @@ async def instructions(server_ip, server_port, path):
                 if DEBUG: print(f"Routine Length = {str(len(routine))}")
             except Exception as e:
                 print("Failed to retrieve commands: {}".format(e))
+                write_error(e, "instructions.Failedtoretrievcommands")
                 pass
             if i >= retry_max + 1:
                 print("Max Retry reached rebooting")
+                write_error(e, "instructions.maxretry")
                 machine.reset()
                 ROUTINE_COMPLETE = True
                 break
@@ -313,8 +320,9 @@ async def instructions(server_ip, server_port, path):
             print("Last Command Received")
             try:
                 response.close()
-            except Exception:
+            except Exception as e:
                 print("response close failed")
+                write_error(e, "instructions.ROUTINE_COMPLETE")
                 pass
             return
         else:
@@ -327,11 +335,50 @@ async def instructions(server_ip, server_port, path):
                 await asyncio.sleep_ms(0)
 
 
+async def instructions_process_ws(routine):
+    global ROUTINE
+    global ROUTINE_COMPLETE
+    global LAST_COMMAND
+    global ROUTINE_LENGTH
+    gc.collect()
+
+    if len(routine) == 1:
+        if routine[0][0] is 'end':
+            ROUTINE_COMPLETE = True
+    if ROUTINE_COMPLETE:
+        print("Last Command Received")
+    else:
+        if len(routine) > 0:
+            LAST_COMMAND = int(routine[-1][0])
+            ROUTINE.extend(routine)
+            routine = []
+            ROUTINE_LENGTH = len(ROUTINE)
+            print(str(LAST_COMMAND))
+
+
+async def instructions_request_ws(ws):
+    global ROUTINE
+    global ROUTINE_COMPLETE
+    global LAST_COMMAND
+    global ROUTINE_LENGTH
+    while not ROUTINE_COMPLETE:
+        while ROUTINE_LENGTH >= MAX_QUEUE - 1:
+            await asyncio.sleep_ms(0)
+        if ws is not None:
+            if await ws.open():
+                number_of_commands = MAX_QUEUE - ROUTINE_LENGTH
+                await ws.send(ujson.dumps(
+                    {'cmd': "next", 'ip': IPADDRESS, 'limit': number_of_commands, 'last_command': str(LAST_COMMAND)}))
+        await asyncio.sleep_ms(500)
+
+
 def active_routine_check():
     print("checking for active show")
     loop = asyncio.get_event_loop()
     loop.create_task(lightshow(time.time_ns()))
-    loop.create_task(instructions(str(configure.read_config_file('server_ip')), configure.read_config_file('check_in_port'), "/lightshow/nextcommand"))
+    loop.create_task(
+        instructions(str(configure.read_config_file('server_ip')), configure.read_config_file('check_in_port'),
+                     "/lightshow/nextcommand"))
 
 
 def initilize():
@@ -344,58 +391,19 @@ def initilize():
         print("unable to contact server")
         pass
     try:
-        print("Checking state")
-        state()
-    except Exception as e:
-        print(e)
-        write_error(e,data="app.initilize.awsstatecheck")
-        print("unable to check state")
-        pass
-    try:
         print("Sending Errors to server")
-        send_error(server_ip=str(configure.read_config_file('server_ip')), server_port=configure.read_config_file('check_in_port'))
+        send_error(server_ip=str(configure.read_config_file('server_ip')),
+                   server_port=configure.read_config_file('check_in_port'))
     except Exception as e:
         write_error(e, data="app.initilize.checkin")
+    try:
+        print("starting websocket")
+        from . import wsapp
+        loop = asyncio.get_event_loop()
+        loop.create_task(wsapp.read_loop())
+    except Exception as e:
+        print("has issues websocket")
 
-
-def state(check_in_url="https://ssg0hg9fta.execute-api.us-west-2.amazonaws.com/dev/device/state"):
-    print(check_in_url)
-    pb_headers = {'Content-Type': 'application/json'}
-    data = ujson.dumps({'serial': MAC_ADDRESS, 'max_msg': 50})
-    response = urequests.post(check_in_url, headers=pb_headers, json=data)
-    response_data = ujson.loads(response.text)
-    response.close()
-    print(response_data)
-    if response_data['len'] > 0:
-        for item in ujson.loads(response_data['data']):
-            print(item)
-            aws_run_command(item)
-
-
-
-def aws_run_command(command):
-    # command [module, function, parameter, time]
-    if len(command) == 4:
-        deadline = ticks_add(time.ticks_ms(), command[3])
-    else:
-        deadline = ticks_add(time.ticks_ms(), 1)
-    # ADMIN Functions
-    if command[0] == 0:
-        admin.run_command(command)
-    # WS2811 Functions
-    elif command[0] == 1:
-        ws2811.run_command(command)
-    # Servo Functions
-    elif command[0] == 2:
-        servo.run_command(command)
-    # Lightshow Functions
-    elif command[0] == 3:
-        servo.run_command(command)
-    # Bad Command
-    else:
-        print(f"UNASSIGNED - UNKNOWN - {command}")
-    while ticks_diff(deadline, time.ticks_ms()) > 0:
-        time.sleep_ms(10)
 
 print("initilizing application")
 initilize()
@@ -403,3 +411,4 @@ print("initilizing active routine check")
 active_routine_check()
 print("initilizing website")
 site.run(host='0.0.0.0', debug=False, port=80)
+

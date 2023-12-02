@@ -7,7 +7,7 @@ ms = 1000000
 class ws2811:
 
 
-    def __init__(self, light_count, pin=5, order="GRB", timing=1):
+    def __init__(self, light_count, pin=48, order="GRB", timing=1):
         self.PIXEL_COUNT = light_count
         if timing is 1:
             self.np = neopixel.NeoPixel(machine.Pin(pin), self.PIXEL_COUNT, timing=1)
@@ -84,13 +84,24 @@ class ws2811:
     def color_wipe_2(self, p1=(0, 0, 0), ttms=200, dir=0):
         """Wipe color across display a pixel at a time over the total time alocated"""
         pixel_count = self.PIXEL_COUNT
+        divider = 1
+        if pixel_count >= 150:
+            divider = 2
+        elif pixel_count >= 250:
+            divider = 3
+        elif pixel_count > 300:
+            divider = 4
         start_time = time.time_ns()
-        time_per_change = int(ttms / pixel_count)*ms
+        time_per_change = int(ttms / (pixel_count / divider)) * ms
         end_time = start_time + (ttms * ms)
         last_update = start_time - time_per_change
         if dir == 0:
-            for i in range(pixel_count):
-                self.np[i] = p1
+            for i in range(int(pixel_count / divider)):
+                for x in range(divider):
+                    try:
+                        self.np[i * divider + x] = p1
+                    except:
+                        pass
                 while time.time_ns() < last_update + time_per_change:
                     pass
                 self.np.write()
@@ -98,8 +109,12 @@ class ws2811:
                 if time.time_ns() > end_time:
                     return
         elif dir == 1:
-            for i in range(pixel_count):
-                self.np[pixel_count - i - 1] = p1
+            for i in range(pixel_count / divider):
+                for x in range(divider):
+                    try:
+                        self.np[pixel_count - (i * divider + x - 1)] = p1
+                    except:
+                        pass
                 while time.time_ns() < last_update + time_per_change:
                     pass
                 self.np.write()
@@ -110,8 +125,15 @@ class ws2811:
     def runner(self, p1=(0, 0, 0), count=1, ttms=200, dir=0):
         """Wipe small number of pixels across over the total time alocated"""
         pixel_count = self.PIXEL_COUNT
+        divider = 1
+        if pixel_count >= 150:
+            divider = 2
+        elif pixel_count >= 250:
+            divider = 3
+        elif pixel_count > 300:
+            divider = 4
         start_time = time.time_ns()
-        time_per_change = int(ttms / pixel_count)*ms
+        time_per_change = int(ttms / (pixel_count / divider))*ms
         end_time = start_time + (ttms * ms)
         last_update = start_time - time_per_change
         if count > pixel_count:
@@ -122,8 +144,12 @@ class ws2811:
             self.np.write()
             last_update = last_update + time_per_change
             for i in range(pixel_count-count):
-                self.np[i] = self.np[i+count]
-                self.np[i + count] = p1
+                for x in range(divider):
+                    try:
+                        self.np[i*divider+x] = self.np[i*(divider-1)+x]
+                        self.np[i * divider + count + x] = p1
+                    except:
+                        pass
                 while time.time_ns() < last_update + time_per_change:
                     pass
                 self.np.write()
@@ -137,8 +163,12 @@ class ws2811:
             self.np.write()
             last_update = last_update + time_per_change
             for i in range(pixel_count-count):
-                self.np[pixel_count-1-i] = self.np[pixel_count-1-count-i]
-                self.np[pixel_count-1-count-i] = p1
+                for x in range(divider):
+                    try:
+                        self.np[pixel_count - 1 - (i * divider) - x] = self.np[pixel_count - 1 - (i * divider) - x - count]
+                        self.np[pixel_count - 1 - (i * divider) - x - count] = p1
+                    except:
+                        pass
                 while time.time_ns() < last_update + time_per_change:
                     pass
                 self.np.write()
@@ -345,18 +375,19 @@ class ws2811:
 from . import picoweb
 app = picoweb.WebApp(__name__)
 order = "RGB"
+led_pin = int(configure.read_config_file("ws2811_pin"))
 if configure.read_config_file("ws2811_color_order") is not None:
     order = configure.read_config_file("ws2811_color_order")
 if configure.read_config_file("type") is not None:
     type = configure.read_config_file("type")
     if type == "WS2812":
-        lights = ws2811(int(configure.read_config_file("count")), order=order, timing=2)
+        lights = ws2811(int(configure.read_config_file("count")), order=order, timing=2, pin=led_pin)
     elif type == "WS2812B":
-        lights = ws2811(int(configure.read_config_file("count")), order=order, timing=1)
+        lights = ws2811(int(configure.read_config_file("count")), order=order, timing=1, pin=led_pin)
     else:
-        lights = ws2811(int(configure.read_config_file("count")), order=order)
+        lights = ws2811(int(configure.read_config_file("count")), order=order, pin=led_pin)
 else:
-    lights = ws2811(int(configure.read_config_file("count")), order=order)
+    lights = ws2811(int(configure.read_config_file("count")), order=order, pin=led_pin)
 
 def try_int(val):
     try:
