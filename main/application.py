@@ -107,8 +107,8 @@ def run_lightshow(req, resp):
     # Wait for server to build lightshow index
     time.sleep_ms(200)
     print(d)
-    # loop.create_task(lightshow(d['starttime']))
-    # loop.create_task(instructions(d['server'], d['port'], "/lightshow/nextcommand"))
+    loop.create_task(lightshow(d['starttime']))
+    loop.create_task(instructions(d['server'], d['port'], "/lightshow/nextcommand"))
 
 
 async def lightshow(start_time):
@@ -396,13 +396,13 @@ def initilize():
                    server_port=configure.read_config_file('check_in_port'))
     except Exception as e:
         write_error(e, data="app.initilize.checkin")
-    try:
-        print("starting websocket")
-        from . import wsapp
-        loop = asyncio.get_event_loop()
-        loop.create_task(wsapp.read_loop())
-    except Exception as e:
-        print("has issues websocket")
+    # try:
+    #     print("starting websocket")
+    #     from . import wsapp
+    #     loop = asyncio.get_event_loop()
+    #     loop.create_task(wsapp.read_loop())
+    # except Exception as e:
+    #     print("has issues websocket")
 
 
 print("initilizing application")
