@@ -349,6 +349,23 @@ class OTAUpdater:
         gc.collect()
         return version
 
+    def get_largest_version_number(self, versions=[]):
+        return max(versions, key=self.version_split)
+
+    def version_split(self, version):
+        major, minor, micro = version.split('.')
+        return int(major), int(minor), int(micro)
+
+    def check_for_update(self):
+        current_version = self.current_version
+        latest_version = self.get_latest_version()
+        if latest_version == self.current_version:
+            return False, current_version, latest_version
+        if latest_version == self.get_largest_version_number([current_version, latest_version]):
+            print('New version available')
+            return True, current_version, latest_version
+        return False, current_version, latest_version
+
     def _download_new_version(self, version):
         print('Downloading version {}'.format(version))
         self._download_all_files(version)
