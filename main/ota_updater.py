@@ -1,6 +1,9 @@
-import os, gc
+import usocket, os, gc, time
 
-import usocket, os, gc
+# Constants for memory-efficient chunk operations
+CHUNK_SIZE = 2048  # Optimized for ESP32-S3
+_RENAME_SUPPORTED = None  # Cache for rename capability test
+
 class Response:
 
     def __init__(self, socket, saveToFile=None):
@@ -8,14 +11,13 @@ class Response:
         self._saveToFile = saveToFile
         self._encoding = 'utf-8'
         if saveToFile is not None:
-            CHUNK_SIZE = 512 # bytes
-            with open(saveToFile, 'w') as outfile:
+            with open(saveToFile, 'wb') as outfile:
                 data = self._socket.read(CHUNK_SIZE)
                 while data:
                     outfile.write(data)
                     data = self._socket.read(CHUNK_SIZE)
-                outfile.close()
-                
+                    gc.collect()  # Free memory during large downloads
+
             self.close()
 
     def close(self):
@@ -49,13 +51,15 @@ class Response:
 
 class HttpClient:
 
-    def __init__(self, headers={}):
-        self._headers = headers
+    def __init__(self, headers=None):
+        self._headers = headers or {}
 
+    @staticmethod
     def is_chunked_data(data):
         return getattr(data, "__iter__", None) and not getattr(data, "__len__", None)
 
-    def request(self, method, url, data=None, json=None, file=None, custom=None, saveToFile=None, headers={}, stream=None):
+    def request(self, method, url, data=None, json=None, file=None, custom=None, saveToFile=None, headers=None, stream=None):
+        headers = headers or {}
         chunked = data and self.is_chunked_data(data)
         redirect = None #redirection url, None means no redirection
         def _write_headers(sock, _headers):
@@ -121,15 +125,18 @@ class HttpClient:
                         s.write(b"%x\r\n" % len(chunk))
                         s.write(chunk)
                         s.write(b"\r\n")
-                    s.write("0\r\n\r\n")
+                    s.write(b"0\r\n\r\n")
                 else:
                     s.write(data)
             elif file:
                 s.write(b'Content-Length: %d\r\n' % os.stat(file)[6])
                 s.write(b'\r\n')
-                with open(file, 'r') as file_object:
-                    for line in file_object:
-                        s.write(line + '\n')
+                with open(file, 'rb') as file_object:
+                    while True:
+                        chunk = file_object.read(CHUNK_SIZE)
+                        if not chunk:
+                            break
+                        s.write(chunk)
             elif custom:
                 custom(s)
             else:
@@ -161,14 +168,18 @@ class HttpClient:
 
         if redirect:
             s.close()
+            # Fix: pass all original kwargs on redirect
+            kw = {'data': data, 'json': json, 'file': file, 'custom': custom,
+                  'saveToFile': saveToFile, 'headers': headers, 'stream': stream}
             if status in [301, 302, 303]:
                 return self.request('GET', url=redirect, **kw)
             else:
                 return self.request(method, redirect, **kw)
         else:
-            resp = Response(s,saveToFile)
+            resp = Response(s, saveToFile)
             resp.status_code = status
             resp.reason = reason
+            gc.collect()
             return resp
 
     def head(self, url, **kw):
@@ -196,37 +207,31 @@ class OTAUpdater:
     """
 
     def __init__(self, github_repo, github_src_dir='', module='', main_dir='main', new_version_dir='next', secrets_file=None, github_auth_token=None):
-        self.headers = None
-        if github_auth_token is None:
-            self.headers = {'User-Agent': 'Micropython'}
-        else:
-            token = "token " + github_auth_token
-            self.headers = {'User-Agent': 'Micropython', 'Authorization': token}
-        self.http_client = HttpClient(headers=self.headers)
+        headers = {'User-Agent': 'Micropython'}
+        if github_auth_token:
+            headers['Authorization'] = "token " + github_auth_token
+        self.http_client = HttpClient(headers=headers)
         self.github_repo = github_repo.rstrip('/').replace('https://github.com/', '')
-        self.github_src_dir = '' if len(github_src_dir) < 1 else github_src_dir.rstrip('/') + '/'
+        self.github_src_dir = '' if not github_src_dir else github_src_dir.rstrip('/') + '/'
         self.module = module.rstrip('/')
         self.main_dir = main_dir
         self.new_version_dir = new_version_dir
         self.secrets_file = secrets_file
         self.current_version = self.get_version(self.modulepath(self.main_dir))
 
-    def __del__(self):
-        self.http_client = None
-
     def get_current_version(self):
         return self.current_version
-    
+
     def update_software(self):
         return self.install_update_if_available()
-    
+
     def check_for_update_to_install_during_next_reboot(self) -> bool:
         """Function which will check the GitHub repo if there is a newer version available.
-        
-        This method expects an active internet connection and will compare the current 
+
+        This method expects an active internet connection and will compare the current
         version with the latest version available on GitHub.
-        If a newer version is available, the file 'next/.version' will be created 
-        and you need to call machine.reset(). A reset is needed as the installation process 
+        If a newer version is available, the file 'next/.version' will be created
+        and you need to call machine.reset(). A reset is needed as the installation process
         takes up a lot of memory (mostly due to the http stack)
 
         Returns
@@ -244,30 +249,33 @@ class OTAUpdater:
 
     def install_update_if_available_after_boot(self, ssid, password) -> bool:
         """This method will install the latest version if out-of-date after boot.
-        
-        This method, which should be called first thing after booting, will check if the 
-        next/.version' file exists. 
+
+        This method, which should be called first thing after booting, will check if the
+        next/.version' file exists.
 
         - If yes, it initializes the WIFI connection, downloads the latest version and installs it
         - If no, the WIFI connection is not initialized as no new known version is available
         """
 
-        if self.new_version_dir in os.listdir(self.module):
-            if '.version' in os.listdir(self.modulepath(self.new_version_dir)):
+        try:
+            version_files = os.listdir(self.modulepath(self.new_version_dir))
+            if '.version' in version_files:
                 latest_version = self.get_version(self.modulepath(self.new_version_dir), '.version')
                 print('New update found: ', latest_version)
                 OTAUpdater._using_network(ssid, password)
                 self.install_update_if_available()
                 return True
-            
+        except OSError:
+            pass
+
         print('No new updates found...')
         return False
 
     def install_update_if_available(self) -> bool:
         """This method will immediately install the latest version if out-of-date.
-        
+
         This method expects an active internet connection and allows you to decide yourself
-        if you want to install the latest version. It is necessary to run it directly after boot 
+        if you want to install the latest version. It is necessary to run it directly after boot
         (for memory reasons) and you need to restart the microcontroller if a new version is found.
 
         Returns
@@ -284,20 +292,25 @@ class OTAUpdater:
             self._delete_old_version()
             self._install_new_version()
             return True
-        
+
         return False
 
 
     @staticmethod
-    def _using_network(ssid, password):
+    def _using_network(ssid, password, timeout_ms=30000):
         import network
         sta_if = network.WLAN(network.STA_IF)
         if not sta_if.isconnected():
             print('connecting to network...')
             sta_if.active(True)
             sta_if.connect(ssid, password)
-            while not sta_if.isconnected():
-                pass
+            # Sleep instead of busy-wait to save CPU, with timeout
+            elapsed = 0
+            while not sta_if.isconnected() and elapsed < timeout_ms:
+                time.sleep_ms(100)
+                elapsed += 100
+            if not sta_if.isconnected():
+                raise OSError('Failed to connect to WiFi after {}ms'.format(timeout_ms))
         print('network config:', sta_if.ifconfig())
 
     def _check_for_new_version(self):
@@ -313,14 +326,13 @@ class OTAUpdater:
         self.mkdir(self.modulepath(self.new_version_dir))
         with open(self.modulepath(self.new_version_dir + '/.version'), 'w') as versionfile:
             versionfile.write(latest_version)
-            versionfile.close()
 
     def get_version(self, directory, version_file_name='.version'):
-        if version_file_name in os.listdir(directory):
+        try:
             with open(directory + '/' + version_file_name) as f:
-                version = f.read()
-                return version
-        return '0.0'
+                return f.read().strip()
+        except OSError:
+            return '0.0'
 
     def get_latest_version(self):
         latest_release = self.http_client.get('https://api.github.com/repos/{}/releases/latest'.format(self.github_repo))
@@ -334,6 +346,7 @@ class OTAUpdater:
                 "github api message: \n {} \n ".format(gh_json)
             )
         latest_release.close()
+        gc.collect()
         return version
 
     def _download_new_version(self, version):
@@ -343,7 +356,7 @@ class OTAUpdater:
 
     def _download_all_files(self, version, sub_dir=''):
         url = 'https://api.github.com/repos/{}/contents/{}{}{}?ref=refs/tags/{}'.format(self.github_repo, self.github_src_dir, self.main_dir, sub_dir, version)
-        gc.collect() 
+        gc.collect()
         file_list = self.http_client.get(url)
         file_list_json = file_list.json()
         for file in file_list_json:
@@ -362,6 +375,7 @@ class OTAUpdater:
 
     def _download_file(self, version, gitPath, path):
         self.http_client.get('https://raw.githubusercontent.com/{}/{}/{}'.format(self.github_repo, version, gitPath), saveToFile=path)
+        gc.collect()
 
     def _copy_secrets_file(self):
         if self.secrets_file:
@@ -395,11 +409,20 @@ class OTAUpdater:
         os.rmdir(directory)
 
     def _os_supports_rename(self) -> bool:
-        self._mk_dirs('otaUpdater/osRenameTest')
-        os.rename('otaUpdater', 'otaUpdated')
-        result = len(os.listdir('otaUpdated')) > 0
-        self._rmtree('otaUpdated')
-        return result
+        global _RENAME_SUPPORTED
+        if _RENAME_SUPPORTED is not None:
+            return _RENAME_SUPPORTED
+
+        try:
+            self._mk_dirs('otaUpdater/osRenameTest')
+            os.rename('otaUpdater', 'otaUpdated')
+            result = len(os.listdir('otaUpdated')) > 0
+            self._rmtree('otaUpdated')
+            _RENAME_SUPPORTED = result
+            return result
+        except (OSError, Exception):
+            _RENAME_SUPPORTED = False
+            return False
 
     def _copy_directory(self, fromPath, toPath):
         if not self._exists_dir(toPath):
@@ -413,37 +436,34 @@ class OTAUpdater:
                 self._copy_file(fromPath + '/' + entry[0], toPath + '/' + entry[0])
 
     def _copy_file(self, fromPath, toPath):
-        with open(fromPath) as fromFile:
-            with open(toPath, 'w') as toFile:
-                CHUNK_SIZE = 512 # bytes
-                data = fromFile.read(CHUNK_SIZE)
-                while data:
-                    toFile.write(data)
+        with open(fromPath, 'rb') as fromFile:
+            with open(toPath, 'wb') as toFile:
+                while True:
                     data = fromFile.read(CHUNK_SIZE)
-            toFile.close()
-        fromFile.close()
+                    if not data:
+                        break
+                    toFile.write(data)
 
     def _exists_dir(self, path) -> bool:
         try:
             os.listdir(path)
             return True
-        except:
+        except OSError:
             return False
 
     def _mk_dirs(self, path:str):
         paths = path.split('/')
-
-        pathToCreate = ''
+        pathToCreate = []
         for x in paths:
-            self.mkdir(pathToCreate + x)
-            pathToCreate = pathToCreate + x + '/'
+            pathToCreate.append(x)
+            self.mkdir('/'.join(pathToCreate))
 
     # different micropython versions act differently when directory already exists
     def mkdir(self, path:str):
         try:
             os.mkdir(path)
         except OSError as exc:
-            if exc.args[0] == 17: 
+            if exc.args[0] == 17:
                 pass
 
 
