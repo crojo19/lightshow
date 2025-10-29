@@ -259,7 +259,8 @@ def run_command(module, function, parameters):
         elif module == "servo":
             getattr(servo, function)(**parameters)
     except Exception as e:
-        write_error(e, data=f"app.run_command {module}.{function}.{parameters}")
+        write_error(e, data=f"app.run_command {module}.{function}.{parameters}\n")
+        write_error(e, data=f"app.run_command {module}.{function}.{parameters}\n")
         print("ERROR - Command Failed to run: " + str(function))
         pass
 
@@ -302,12 +303,13 @@ async def instructions(server_ip, server_port, path):
                 gc.collect()
                 if DEBUG: print(f"Routine Length = {str(len(routine))}")
             except Exception as e:
+                print(routine)
                 print("Failed to retrieve commands: {}".format(e))
                 write_error(e, "instructions.Failedtoretrievcommands")
                 pass
             if i >= retry_max + 1:
                 print("Max Retry reached rebooting")
-                write_error(e, "instructions.maxretry")
+                write_error("Exception", "instructions.maxretry")
                 machine.reset()
                 ROUTINE_COMPLETE = True
                 break
@@ -411,4 +413,3 @@ print("initilizing active routine check")
 active_routine_check()
 print("initilizing website")
 site.run(host='0.0.0.0', debug=False, port=80)
-
