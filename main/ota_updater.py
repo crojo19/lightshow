@@ -342,7 +342,7 @@ class OTAUpdater:
         print('Version {} downloaded to {}'.format(version, self.modulepath(self.new_version_dir)))
 
     def _download_all_files(self, version, sub_dir=''):
-        url = 'https://api.github.com/repos/{}/contents{}{}{}?ref=refs/tags/{}'.format(self.github_repo, self.github_src_dir, self.main_dir, sub_dir, version)
+        url = 'https://api.github.com/repos/{}/contents/{}{}{}?ref=refs/tags/{}'.format(self.github_repo, self.github_src_dir, self.main_dir, sub_dir, version)
         gc.collect() 
         file_list = self.http_client.get(url)
         file_list_json = file_list.json()
